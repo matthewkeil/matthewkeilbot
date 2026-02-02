@@ -1,7 +1,7 @@
-# Deploy OpenClaw playbook
+# Deploy matthewkeilbot playbook
 # Deploys or updates OpenClaw on the EC2 instance
 ---
-- name: Deploy OpenClaw
+- name: Deploy matthewkeilbot
   hosts: all
   become: true
 
@@ -48,7 +48,7 @@
         owner: "{{ openclaw_user }}"
         group: "{{ openclaw_user }}"
         mode: "0644"
-      notify: Restart OpenClaw
+      notify: Restart matthewkeilbot
 
     - name: Copy OpenClaw configuration
       ansible.builtin.template:
@@ -57,7 +57,7 @@
         owner: "{{ openclaw_user }}"
         group: "{{ openclaw_user }}"
         mode: "0600"
-      notify: Restart OpenClaw
+      notify: Restart matthewkeilbot
 
     - name: Copy environment file
       ansible.builtin.template:
@@ -67,22 +67,22 @@
         group: "{{ openclaw_user }}"
         mode: "0600"
       no_log: true
-      notify: Restart OpenClaw
+      notify: Restart matthewkeilbot
 
     - name: Pull latest OpenClaw Docker image
       community.docker.docker_image:
         name: "ghcr.io/openclaw/openclaw:{{ openclaw_version }}"
         source: pull
         force_source: true
-      notify: Restart OpenClaw
+      notify: Restart matthewkeilbot
 
-    - name: Ensure OpenClaw is running
+    - name: Ensure matthewkeilbot is running
       community.docker.docker_compose_v2:
         project_src: "{{ openclaw_home }}"
         state: present
       become_user: "{{ openclaw_user }}"
 
-    - name: Wait for OpenClaw to be healthy
+    - name: Wait for matthewkeilbot to be healthy
       ansible.builtin.uri:
         url: "http://localhost:{{ openclaw_port }}/"
         status_code: [200, 302]
@@ -94,13 +94,13 @@
     - name: Display deployment status
       ansible.builtin.debug:
         msg: |
-          OpenClaw deployed successfully!
+          matthewkeilbot deployed successfully!
           - Container status: Running
           - Health check: Passed
           - Gateway URL: http://localhost:{{ openclaw_port }}
 
   handlers:
-    - name: Restart OpenClaw
+    - name: Restart matthewkeilbot
       community.docker.docker_compose_v2:
         project_src: "{{ openclaw_home }}"
         state: present

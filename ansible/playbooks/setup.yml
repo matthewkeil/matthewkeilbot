@@ -1,7 +1,7 @@
 # Initial server setup playbook
 # Run this once after CDK deployment to verify server is ready
 ---
-- name: Setup OpenClaw Server
+- name: Setup matthewkeilbot Server
   hosts: all
   become: true
 
@@ -14,7 +14,7 @@
 
     - name: Check if bootstrap completed
       ansible.builtin.stat:
-        path: /opt/openclaw/bootstrap-complete
+        path: /opt/matthewkeilbot/bootstrap-complete
       register: bootstrap_file
 
     - name: Verify Docker is installed
@@ -44,7 +44,7 @@
       ansible.builtin.debug:
         msg: "AWS CLI version: {{ aws_version.stdout }}"
 
-    - name: Ensure openclaw directory exists
+    - name: Ensure matthewkeilbot directory exists
       ansible.builtin.file:
         path: "{{ openclaw_home }}"
         state: directory
