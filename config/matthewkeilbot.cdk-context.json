@@ -1,7 +1,11 @@
 {
-  "domainName": "bot.matthewkeil.com",
-  "hostedZoneId": "Z1234567890ABC",
+  "dnsAccountId": "REPLACE_WITH_DNS_ACCOUNT_ID",
+  "computeAccountId": "REPLACE_WITH_COMPUTE_ACCOUNT_ID",
+  "hostedZoneId": "REPLACE_WITH_HOSTED_ZONE_ID",
   "hostedZoneName": "matthewkeil.com",
+  "domainName": "bot.matthewkeil.com",
+  "subdomain": "bot",
   "instanceType": "t2.micro",
-  "keyPairName": "matthewkeilbot"
+  "keyPairName": "matthewkeilbot",
+  "region": "us-east-1"
 }

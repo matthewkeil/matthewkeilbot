@@ -4,16 +4,21 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as elbv2Targets from "aws-cdk-lib/aws-elasticloadbalancingv2-targets";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
-import * as route53 from "aws-cdk-lib/aws-route53";
-import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 
 export interface MatthewkeilbotStackProps extends cdk.StackProps {
+  /** Full domain name for the bot (e.g., "bot.matthewkeil.com") */
   domainName?: string;
+  /** Route53 Hosted Zone ID (in DNS account) */
   hostedZoneId?: string;
+  /** Route53 Hosted Zone Name (e.g., "matthewkeil.com") */
   hostedZoneName?: string;
+  /** ARN of the cross-account DNS delegation role (from DnsStack) */
+  dnsDelegationRoleArn?: string;
+  /** EC2 instance type */
   instanceType?: string;
+  /** SSH key pair name */
   keyPairName?: string;
 }
 
@@ -24,7 +29,14 @@ export class MatthewkeilbotStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: MatthewkeilbotStackProps = {}) {
     super(scope, id, props);
 
-    const { domainName, hostedZoneId, hostedZoneName, instanceType = "t2.micro", keyPairName } = props;
+    const {
+      domainName,
+      hostedZoneId,
+      hostedZoneName,
+      dnsDelegationRoleArn,
+      instanceType = "t2.micro",
+      keyPairName,
+    } = props;
 
     // Use default VPC for simplicity (can be customized later)
     const vpc = ec2.Vpc.fromLookup(this, "DefaultVpc", {
@@ -51,7 +63,7 @@ export class MatthewkeilbotStack extends cdk.Stack {
     albSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "Allow HTTPS");
     albSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "Allow HTTP for redirect");
 
-    // Allow ALB to reach instance on OpenClaw port
+    // Allow ALB to reach instance on OpenClaw gateway port
     instanceSg.addIngressRule(albSg, ec2.Port.tcp(18789), "Allow ALB to OpenClaw gateway on 18789");
 
     // IAM role for EC2 instance
@@ -177,17 +189,18 @@ export class MatthewkeilbotStack extends cdk.Stack {
 
     targetGroup.addTarget(new elbv2Targets.InstanceTarget(this.instance, 18789));
 
-    // HTTPS listener (if domain is configured)
-    if (domainName && hostedZoneId && hostedZoneName) {
-      const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, "HostedZone", {
-        hostedZoneId,
-        zoneName: hostedZoneName,
-      });
-
-      // ACM Certificate
+    // HTTPS listener (if domain is configured with cross-account DNS delegation)
+    if (domainName && hostedZoneId && hostedZoneName && dnsDelegationRoleArn) {
+      // Cross-account certificate validation using delegation role
       const certificate = new acm.Certificate(this, "Certificate", {
         domainName,
-        validation: acm.CertificateValidation.fromDns(hostedZone),
+        validation: acm.CertificateValidation.fromDns({
+          hostedZoneId,
+          hostedZoneName,
+          // The delegation role allows this account to create DNS validation records
+          // in the Route53 hosted zone that lives in a different account
+          assumeValidationRole: dnsDelegationRoleArn,
+        } as any), // CDK types don't fully expose cross-account validation yet
       });
 
       // HTTPS listener
@@ -209,16 +222,15 @@ export class MatthewkeilbotStack extends cdk.Stack {
         }),
       });
 
-      // Route53 alias record
-      new route53.ARecord(this, "AliasRecord", {
-        zone: hostedZone,
-        recordName: domainName,
-        target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(this.alb)),
-      });
-
       new cdk.CfnOutput(this, "Url", {
         value: `https://${domainName}`,
-        description: "matthewkeilbot URL",
+        description: "matthewkeilbot URL (DNS record must be created in DnsStack)",
+      });
+
+      // Output the ALB details needed to create the A record in the DNS account
+      new cdk.CfnOutput(this, "AlbHostedZoneId", {
+        value: this.alb.loadBalancerCanonicalHostedZoneId,
+        description: "ALB Hosted Zone ID (use this in DnsStack for alias record)",
       });
     } else {
       // HTTP only listener (for testing without domain)
@@ -247,7 +259,7 @@ export class MatthewkeilbotStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "AlbDnsName", {
       value: this.alb.loadBalancerDnsName,
-      description: "ALB DNS Name",
+      description: "ALB DNS Name (use this in DnsStack for alias record)",
     });
 
     new cdk.CfnOutput(this, "SshCommand", {
