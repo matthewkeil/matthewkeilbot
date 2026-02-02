@@ -1,0 +1,23 @@
+# Common variables for all hosts
+---
+# OpenClaw configuration
+openclaw_version: "latest"
+openclaw_user: ubuntu
+openclaw_home: /opt/openclaw
+openclaw_port: 18789
+
+# AWS region for SSM parameter retrieval
+aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-1', true) }}"
+
+# SSM parameter paths
+ssm_telegram_token_path: /openclaw/telegram/bot-token
+ssm_anthropic_key_path: /openclaw/anthropic/api-key
+
+# Docker configuration
+docker_compose_version: "2.24.0"
+
+# Telegram configuration
+telegram_enabled: true
+
+# Agent configuration
+openclaw_agent_model: "anthropic/claude-sonnet-4"

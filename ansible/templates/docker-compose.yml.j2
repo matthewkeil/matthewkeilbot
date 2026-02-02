@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:{{ openclaw_version }}
+    container_name: openclaw
+    restart: unless-stopped
+    ports:
+      - "{{ openclaw_port }}:18789"
+    volumes:
+      - /home/{{ openclaw_user }}/.openclaw:/home/node/.openclaw
+      - openclaw-data:/data
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18789/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  openclaw-data:

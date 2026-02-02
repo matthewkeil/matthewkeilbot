@@ -1,0 +1,23 @@
+{
+  "agent": {
+    "model": "{{ openclaw_agent_model }}"
+  },
+  "gateway": {
+    "port": 18789,
+    "host": "0.0.0.0"
+  },
+  "channels": {
+{% if telegram_enabled %}
+    "telegram": {
+      "enabled": true
+    }
+{% endif %}
+  },
+  "agents": {
+    "defaults": {
+      "sandbox": {
+        "mode": "non-main"
+      }
+    }
+  }
+}

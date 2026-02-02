@@ -1,0 +1,7 @@
+{
+  "domainName": "bot.matthewkeil.com",
+  "hostedZoneId": "Z1234567890ABC",
+  "hostedZoneName": "matthewkeil.com",
+  "instanceType": "t2.micro",
+  "keyPairName": "matthewkeilbot"
+}
