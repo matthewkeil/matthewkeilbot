@@ -35,6 +35,22 @@
       ansible.builtin.debug:
         msg: "Docker Compose version: {{ compose_version.stdout }}"
 
+    - name: Verify Caddy is installed
+      ansible.builtin.command: caddy version
+      register: caddy_version
+      changed_when: false
+
+    - name: Display Caddy version
+      ansible.builtin.debug:
+        msg: "Caddy version: {{ caddy_version.stdout }}"
+
+    - name: Check Caddy service status
+      ansible.builtin.systemd:
+        name: caddy
+        state: started
+        enabled: true
+      register: caddy_service
+
     - name: Verify AWS CLI is installed
       ansible.builtin.command: aws --version
       register: aws_version
@@ -67,6 +83,7 @@
           - Bootstrap: {{ 'Complete' if bootstrap_file.stat.exists else 'Not found' }}
           - Docker: Installed
           - Docker Compose: Installed
+          - Caddy: Installed and running
           - AWS CLI: Installed
 
           Next steps:

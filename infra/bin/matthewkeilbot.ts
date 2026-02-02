@@ -6,19 +6,34 @@
  * There are two stacks that can be deployed independently or together.
  *
  * ============================================================================
+ * ARCHITECTURE
+ * ============================================================================
+ *
+ *   User Browser
+ *        │
+ *        │ https://bot.matthewkeil.com
+ *        ▼
+ *   Route53 (DNS Account)
+ *   A Record → Elastic IP
+ *        │
+ *        ▼
+ *   EC2 Instance (Compute Account)
+ *   ├─ Caddy (TLS termination, :443 → :18789)
+ *   └─ OpenClaw Gateway (:18789)
+ *
+ * ============================================================================
  * STACKS
  * ============================================================================
  *
  * DnsStack (deploy to Route53 account)
  *   Creates:
  *   - IAM delegation role for cross-account DNS operations
- *   - A record pointing to the ALB (requires albDnsName and albHostedZoneId)
+ *   - A record pointing to Elastic IP (requires elasticIp parameter)
  *
  * MatthewkeilbotStack (deploy to compute account)
  *   Creates:
- *   - EC2 instance running OpenClaw
- *   - Application Load Balancer
- *   - ACM Certificate (with cross-account DNS validation)
+ *   - EC2 instance with Docker + Caddy (auto TLS via Let's Encrypt)
+ *   - Elastic IP for stable public address
  *   - SSM Parameters for secrets
  *
  * ============================================================================
@@ -33,10 +48,7 @@
  *
  * For MatthewkeilbotStack:
  *   -c computeAccountId=222222222222    AWS account ID for compute resources
- *   -c hostedZoneId=Z1234567890ABC      Route53 hosted zone ID
- *   -c hostedZoneName=example.com       Route53 hosted zone name
  *   -c domainName=bot.example.com       Full domain name for the bot
- *   -c dnsDelegationRoleArn=arn:...     ARN of delegation role (from DnsStack)
  *
  * ============================================================================
  * OPTIONAL CONTEXT PARAMETERS
@@ -46,40 +58,27 @@
  *   -c instanceType=t2.micro            EC2 instance type (default: "t2.micro")
  *   -c keyPairName=matthewkeilbot       SSH key pair name
  *   -c region=us-east-1                 AWS region (default: "us-east-1")
- *   -c albDnsName=...                   ALB DNS name (for DnsStack A record)
- *   -c albHostedZoneId=...              ALB hosted zone ID (for DnsStack A record)
+ *   -c elasticIp=1.2.3.4                Elastic IP (for DnsStack A record)
  *
  * ============================================================================
  * DEPLOYMENT EXAMPLES
  * ============================================================================
  *
- * Step 1: Deploy DnsStack first (creates delegation role)
- *
- *   cdk deploy DnsStack --profile dns-account \
- *     -c dnsAccountId=111111111111 \
- *     -c computeAccountId=222222222222 \
- *     -c hostedZoneId=Z1234567890ABC \
- *     -c hostedZoneName=matthewkeil.com
- *
- * Step 2: Deploy MatthewkeilbotStack (uses delegation role for cert validation)
+ * Step 1: Deploy MatthewkeilbotStack first (creates EC2 + Elastic IP)
  *
  *   cdk deploy MatthewkeilbotStack --profile compute-account \
  *     -c computeAccountId=222222222222 \
  *     -c domainName=bot.matthewkeil.com \
- *     -c hostedZoneId=Z1234567890ABC \
- *     -c hostedZoneName=matthewkeil.com \
- *     -c dnsDelegationRoleArn=arn:aws:iam::111111111111:role/matthewkeilbot-dns-delegation-us-east-1 \
  *     -c keyPairName=matthewkeilbot
  *
- * Step 3: Re-deploy DnsStack with ALB outputs (creates A record)
+ * Step 2: Deploy DnsStack with Elastic IP from Step 1
  *
  *   cdk deploy DnsStack --profile dns-account \
  *     -c dnsAccountId=111111111111 \
  *     -c computeAccountId=222222222222 \
  *     -c hostedZoneId=Z1234567890ABC \
  *     -c hostedZoneName=matthewkeil.com \
- *     -c albDnsName=<ALB_DNS_NAME_FROM_STEP_2> \
- *     -c albHostedZoneId=<ALB_HOSTED_ZONE_ID_FROM_STEP_2>
+ *     -c elasticIp=<ELASTIC_IP_FROM_STEP_1>
  *
  * Deploy both stacks together (after initial setup):
  *
@@ -89,7 +88,7 @@
  *     -c hostedZoneId=Z1234567890ABC \
  *     -c hostedZoneName=matthewkeil.com \
  *     -c domainName=bot.matthewkeil.com \
- *     -c dnsDelegationRoleArn=arn:aws:iam::111111111111:role/matthewkeilbot-dns-delegation-us-east-1 \
+ *     -c elasticIp=1.2.3.4 \
  *     -c keyPairName=matthewkeilbot
  *
  * ============================================================================
@@ -114,12 +113,8 @@ const keyPairName = app.node.tryGetContext("keyPairName") as string | undefined;
 const region =
   (app.node.tryGetContext("region") as string) || process.env.CDK_DEFAULT_REGION || "us-east-1";
 
-// ALB details (provided after first deployment of compute stack)
-const albDnsName = app.node.tryGetContext("albDnsName") as string | undefined;
-const albHostedZoneId = app.node.tryGetContext("albHostedZoneId") as string | undefined;
-
-// DNS delegation role ARN (provided after first deployment of DNS stack)
-const dnsDelegationRoleArn = app.node.tryGetContext("dnsDelegationRoleArn") as string | undefined;
+// Elastic IP (provided after first deployment of compute stack)
+const elasticIp = app.node.tryGetContext("elasticIp") as string | undefined;
 
 /**
  * Validation helper - throws if required parameters are missing
@@ -170,8 +165,7 @@ if (createDnsStack) {
     hostedZoneName: hostedZoneName!,
     computeAccountId: computeAccountId!,
     subdomain,
-    albDnsName,
-    albHostedZoneId,
+    elasticIp,
   });
 }
 
@@ -180,10 +174,7 @@ if (createComputeStack) {
   requireContext(
     {
       computeAccountId,
-      hostedZoneId,
-      hostedZoneName,
       domainName,
-      dnsDelegationRoleArn,
     },
     "MatthewkeilbotStack"
   );
@@ -193,10 +184,7 @@ if (createComputeStack) {
       account: computeAccountId,
       region,
     },
-    domainName,
-    hostedZoneId,
-    hostedZoneName,
-    dnsDelegationRoleArn,
+    domainName: domainName!,
     instanceType,
     keyPairName,
   });

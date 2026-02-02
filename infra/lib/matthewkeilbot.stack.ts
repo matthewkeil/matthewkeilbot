@@ -1,21 +1,12 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
-import * as elbv2Targets from "aws-cdk-lib/aws-elasticloadbalancingv2-targets";
-import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 
 export interface MatthewkeilbotStackProps extends cdk.StackProps {
   /** Full domain name for the bot (e.g., "bot.matthewkeil.com") */
-  domainName?: string;
-  /** Route53 Hosted Zone ID (in DNS account) */
-  hostedZoneId?: string;
-  /** Route53 Hosted Zone Name (e.g., "matthewkeil.com") */
-  hostedZoneName?: string;
-  /** ARN of the cross-account DNS delegation role (from DnsStack) */
-  dnsDelegationRoleArn?: string;
+  domainName: string;
   /** EC2 instance type */
   instanceType?: string;
   /** SSH key pair name */
@@ -24,21 +15,14 @@ export interface MatthewkeilbotStackProps extends cdk.StackProps {
 
 export class MatthewkeilbotStack extends cdk.Stack {
   public readonly instance: ec2.Instance;
-  public readonly alb: elbv2.ApplicationLoadBalancer;
+  public readonly elasticIp: ec2.CfnEIP;
 
-  constructor(scope: Construct, id: string, props: MatthewkeilbotStackProps = {}) {
+  constructor(scope: Construct, id: string, props: MatthewkeilbotStackProps) {
     super(scope, id, props);
 
-    const {
-      domainName,
-      hostedZoneId,
-      hostedZoneName,
-      dnsDelegationRoleArn,
-      instanceType = "t2.micro",
-      keyPairName,
-    } = props;
+    const { domainName, instanceType = "t2.micro", keyPairName } = props;
 
-    // Use default VPC for simplicity (can be customized later)
+    // Use default VPC for simplicity
     const vpc = ec2.Vpc.fromLookup(this, "DefaultVpc", {
       isDefault: true,
     });
@@ -50,28 +34,20 @@ export class MatthewkeilbotStack extends cdk.Stack {
       allowAllOutbound: true,
     });
 
-    // Allow SSH from anywhere (restrict in production!)
+    // Allow SSH (restrict to your IP in production)
     instanceSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), "Allow SSH");
 
-    // Security group for ALB
-    const albSg = new ec2.SecurityGroup(this, "AlbSg", {
-      vpc,
-      description: "Security group for matthewkeilbot ALB",
-      allowAllOutbound: true,
-    });
+    // Allow HTTPS (Caddy will handle TLS termination)
+    instanceSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "Allow HTTPS");
 
-    albSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "Allow HTTPS");
-    albSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "Allow HTTP for redirect");
-
-    // Allow ALB to reach instance on OpenClaw gateway port
-    instanceSg.addIngressRule(albSg, ec2.Port.tcp(18789), "Allow ALB to OpenClaw gateway on 18789");
+    // Allow HTTP (for Let's Encrypt ACME challenge and redirect to HTTPS)
+    instanceSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "Allow HTTP");
 
     // IAM role for EC2 instance
     const instanceRole = new iam.Role(this, "InstanceRole", {
       assumedBy: new iam.ServicePrincipal("ec2.amazonaws.com"),
       description: "Role for matthewkeilbot EC2 instance",
       managedPolicies: [
-        // SSM Session Manager access (optional but useful)
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"),
       ],
     });
@@ -85,7 +61,7 @@ export class MatthewkeilbotStack extends cdk.Stack {
       })
     );
 
-    // Create SSM parameters for secrets (placeholders - set actual values via AWS console or CLI)
+    // Create SSM parameters for secrets (placeholders - set actual values via CLI)
     new ssm.StringParameter(this, "TelegramBotToken", {
       parameterName: "/matthewkeilbot/telegram/bot-token",
       stringValue: "PLACEHOLDER_SET_VIA_CLI",
@@ -122,6 +98,24 @@ export class MatthewkeilbotStack extends cdk.Stack {
       "",
       "# Add ubuntu user to docker group",
       "usermod -aG docker ubuntu",
+      "",
+      "# Install Caddy (reverse proxy with automatic HTTPS)",
+      "apt-get install -y debian-keyring debian-archive-keyring apt-transport-https",
+      "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg",
+      "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list",
+      "apt-get update",
+      "apt-get install -y caddy",
+      "",
+      "# Configure Caddy for reverse proxy to OpenClaw",
+      `cat > /etc/caddy/Caddyfile << 'EOF'`,
+      `${domainName} {`,
+      "  reverse_proxy localhost:18789",
+      "}",
+      "EOF",
+      "",
+      "# Start Caddy",
+      "systemctl restart caddy",
+      "systemctl enable caddy",
       "",
       "# Install AWS CLI v2",
       "curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip",
@@ -167,84 +161,17 @@ export class MatthewkeilbotStack extends cdk.Stack {
       }),
     });
 
-    // Application Load Balancer
-    this.alb = new elbv2.ApplicationLoadBalancer(this, "Alb", {
-      vpc,
-      internetFacing: true,
-      securityGroup: albSg,
+    // Elastic IP for stable public IP address
+    this.elasticIp = new ec2.CfnEIP(this, "ElasticIp", {
+      domain: "vpc",
+      tags: [{ key: "Name", value: "matthewkeilbot" }],
     });
 
-    // Target group for EC2 instance
-    const targetGroup = new elbv2.ApplicationTargetGroup(this, "TargetGroup", {
-      vpc,
-      port: 18789,
-      protocol: elbv2.ApplicationProtocol.HTTP,
-      targetType: elbv2.TargetType.INSTANCE,
-      healthCheck: {
-        path: "/",
-        healthyHttpCodes: "200-399",
-        interval: cdk.Duration.seconds(30),
-      },
+    // Associate Elastic IP with the instance
+    new ec2.CfnEIPAssociation(this, "ElasticIpAssociation", {
+      eip: this.elasticIp.ref,
+      instanceId: this.instance.instanceId,
     });
-
-    targetGroup.addTarget(new elbv2Targets.InstanceTarget(this.instance, 18789));
-
-    // HTTPS listener (if domain is configured with cross-account DNS delegation)
-    if (domainName && hostedZoneId && hostedZoneName && dnsDelegationRoleArn) {
-      // Cross-account certificate validation using delegation role
-      const certificate = new acm.Certificate(this, "Certificate", {
-        domainName,
-        validation: acm.CertificateValidation.fromDns({
-          hostedZoneId,
-          hostedZoneName,
-          // The delegation role allows this account to create DNS validation records
-          // in the Route53 hosted zone that lives in a different account
-          assumeValidationRole: dnsDelegationRoleArn,
-        } as any), // CDK types don't fully expose cross-account validation yet
-      });
-
-      // HTTPS listener
-      this.alb.addListener("HttpsListener", {
-        port: 443,
-        protocol: elbv2.ApplicationProtocol.HTTPS,
-        certificates: [certificate],
-        defaultTargetGroups: [targetGroup],
-      });
-
-      // HTTP to HTTPS redirect
-      this.alb.addListener("HttpListener", {
-        port: 80,
-        protocol: elbv2.ApplicationProtocol.HTTP,
-        defaultAction: elbv2.ListenerAction.redirect({
-          protocol: "HTTPS",
-          port: "443",
-          permanent: true,
-        }),
-      });
-
-      new cdk.CfnOutput(this, "Url", {
-        value: `https://${domainName}`,
-        description: "matthewkeilbot URL (DNS record must be created in DnsStack)",
-      });
-
-      // Output the ALB details needed to create the A record in the DNS account
-      new cdk.CfnOutput(this, "AlbHostedZoneId", {
-        value: this.alb.loadBalancerCanonicalHostedZoneId,
-        description: "ALB Hosted Zone ID (use this in DnsStack for alias record)",
-      });
-    } else {
-      // HTTP only listener (for testing without domain)
-      this.alb.addListener("HttpListener", {
-        port: 80,
-        protocol: elbv2.ApplicationProtocol.HTTP,
-        defaultTargetGroups: [targetGroup],
-      });
-
-      new cdk.CfnOutput(this, "Url", {
-        value: `http://${this.alb.loadBalancerDnsName}`,
-        description: "matthewkeilbot URL (HTTP only - configure domain for HTTPS)",
-      });
-    }
 
     // Outputs
     new cdk.CfnOutput(this, "InstanceId", {
@@ -252,20 +179,21 @@ export class MatthewkeilbotStack extends cdk.Stack {
       description: "EC2 Instance ID",
     });
 
-    new cdk.CfnOutput(this, "InstancePublicIp", {
-      value: this.instance.instancePublicIp,
-      description: "EC2 Instance Public IP (for SSH)",
+    new cdk.CfnOutput(this, "ElasticIpAddress", {
+      value: this.elasticIp.attrPublicIp,
+      description: "Elastic IP address (use this for DNS A record)",
+      exportName: "MatthewkeilbotElasticIp",
     });
 
-    new cdk.CfnOutput(this, "AlbDnsName", {
-      value: this.alb.loadBalancerDnsName,
-      description: "ALB DNS Name (use this in DnsStack for alias record)",
+    new cdk.CfnOutput(this, "Url", {
+      value: `https://${domainName}`,
+      description: "matthewkeilbot URL (after DNS is configured)",
     });
 
     new cdk.CfnOutput(this, "SshCommand", {
       value: keyPairName
-        ? `ssh -i ~/.ssh/${keyPairName}.pem ubuntu@${this.instance.instancePublicIp}`
-        : `ssh ubuntu@${this.instance.instancePublicIp}`,
+        ? `ssh -i ~/.ssh/${keyPairName}.pem ubuntu@${this.elasticIp.attrPublicIp}`
+        : `ssh ubuntu@${this.elasticIp.attrPublicIp}`,
       description: "SSH command to connect to instance",
     });
   }

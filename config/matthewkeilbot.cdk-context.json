@@ -7,5 +7,6 @@
   "subdomain": "bot",
   "instanceType": "t2.micro",
   "keyPairName": "matthewkeilbot",
-  "region": "us-east-1"
+  "region": "us-east-1",
+  "elasticIp": "REPLACE_AFTER_FIRST_DEPLOY"
 }

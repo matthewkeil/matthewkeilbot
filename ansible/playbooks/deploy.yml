@@ -97,7 +97,8 @@
           matthewkeilbot deployed successfully!
           - Container status: Running
           - Health check: Passed
-          - Gateway URL: http://localhost:{{ openclaw_port }}
+          - Internal: http://localhost:{{ openclaw_port }}
+          - External: https://{{ domain_name | default('bot.matthewkeil.com') }}
 
   handlers:
     - name: Restart matthewkeilbot

@@ -8,12 +8,10 @@ export interface DnsStackProps extends cdk.StackProps {
   hostedZoneName: string;
   /** The AWS account ID that will assume the delegation role (compute account) */
   computeAccountId: string;
-  /** Optional: ALB DNS name to create the A record (can be added later via separate deployment) */
-  albDnsName?: string;
-  /** Optional: ALB hosted zone ID for alias record */
-  albHostedZoneId?: string;
   /** The subdomain for the bot (e.g., "bot" for bot.matthewkeil.com) */
   subdomain?: string;
+  /** Elastic IP address of the EC2 instance (from MatthewkeilbotStack) */
+  elasticIp?: string;
 }
 
 export class DnsStack extends cdk.Stack {
@@ -23,14 +21,7 @@ export class DnsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: DnsStackProps) {
     super(scope, id, props);
 
-    const {
-      hostedZoneId,
-      hostedZoneName,
-      computeAccountId,
-      albDnsName,
-      albHostedZoneId,
-      subdomain = "bot",
-    } = props;
+    const { hostedZoneId, hostedZoneName, computeAccountId, subdomain = "bot", elasticIp } = props;
 
     // Import the existing hosted zone
     this.hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, "HostedZone", {
@@ -38,10 +29,7 @@ export class DnsStack extends cdk.Stack {
       zoneName: hostedZoneName,
     });
 
-    // Create a role that can be assumed by the compute account
-    // This role allows the compute account to:
-    // 1. Create DNS records for ACM certificate validation
-    // 2. Create the A record pointing to the ALB
+    // Create a role that can be assumed by the compute account (for future use if needed)
     this.delegationRole = new iam.Role(this, "DnsDelegationRole", {
       roleName: `matthewkeilbot-dns-delegation-${this.region}`,
       assumedBy: new iam.AccountPrincipal(computeAccountId),
@@ -61,7 +49,6 @@ export class DnsStack extends cdk.Stack {
       })
     );
 
-    // Also need permission to get change status
     this.delegationRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -70,18 +57,13 @@ export class DnsStack extends cdk.Stack {
       })
     );
 
-    // If ALB DNS name is provided, create the A record directly
-    // This is useful for updating DNS after the compute stack is deployed
-    if (albDnsName && albHostedZoneId) {
-      new route53.ARecord(this, "AlbAliasRecord", {
+    // Create A record pointing to the Elastic IP (if provided)
+    if (elasticIp) {
+      new route53.ARecord(this, "BotARecord", {
         zone: this.hostedZone,
         recordName: `${subdomain}.${hostedZoneName}`,
-        target: route53.RecordTarget.fromAlias({
-          bind: () => ({
-            dnsName: albDnsName,
-            hostedZoneId: albHostedZoneId,
-          }),
-        }),
+        target: route53.RecordTarget.fromIpAddresses(elasticIp),
+        ttl: cdk.Duration.minutes(5),
       });
 
       new cdk.CfnOutput(this, "BotUrl", {
@@ -93,20 +75,18 @@ export class DnsStack extends cdk.Stack {
     // Outputs
     new cdk.CfnOutput(this, "DelegationRoleArn", {
       value: this.delegationRole.roleArn,
-      description: "ARN of the DNS delegation role (use this in compute stack)",
+      description: "ARN of the DNS delegation role",
       exportName: "MatthewkeilbotDnsDelegationRoleArn",
     });
 
-    new cdk.CfnOutput(this, "HostedZoneId", {
+    new cdk.CfnOutput(this, "HostedZoneIdOutput", {
       value: hostedZoneId,
       description: "Route53 Hosted Zone ID",
-      exportName: "MatthewkeilbotHostedZoneId",
     });
 
-    new cdk.CfnOutput(this, "HostedZoneName", {
-      value: hostedZoneName,
-      description: "Route53 Hosted Zone Name",
-      exportName: "MatthewkeilbotHostedZoneName",
+    new cdk.CfnOutput(this, "RecordName", {
+      value: `${subdomain}.${hostedZoneName}`,
+      description: "DNS record name to create",
     });
   }
 }

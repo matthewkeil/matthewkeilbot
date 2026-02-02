@@ -1,5 +1,8 @@
 # Common variables for all hosts
 ---
+# Domain configuration
+domain_name: bot.matthewkeil.com
+
 # OpenClaw configuration
 openclaw_version: "latest"
 openclaw_user: ubuntu
