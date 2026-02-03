@@ -34,7 +34,7 @@
  *   Creates:
  *   - EC2 instance with Docker + Caddy (auto TLS via Let's Encrypt)
  *   - Elastic IP for stable public address
- *   - SSM Parameters for secrets
+ *   - SSM SecureString Parameters for secrets (passed via --parameters)
  *
  * ============================================================================
  * REQUIRED CONTEXT PARAMETERS
@@ -61,6 +61,17 @@
  *   -c elasticIp=1.2.3.4                Elastic IP (for DnsStack A record)
  *
  * ============================================================================
+ * CLOUDFORMATION PARAMETERS (for MatthewkeilbotStack)
+ * ============================================================================
+ *
+ * Secrets are passed via CloudFormation parameters (NoEcho=true, hidden in UI):
+ *
+ *   --parameters TelegramBotTokenParam=<token>    Telegram bot token
+ *   --parameters AnthropicApiKeyParam=<key>       Anthropic API key
+ *
+ * These create SSM SecureString parameters that the EC2 instance can read.
+ *
+ * ============================================================================
  * DEPLOYMENT EXAMPLES
  * ============================================================================
  *
@@ -69,7 +80,9 @@
  *   cdk deploy MatthewkeilbotStack --profile compute-account \
  *     -c computeAccountId=222222222222 \
  *     -c domainName=bot.matthewkeil.com \
- *     -c keyPairName=matthewkeilbot
+ *     -c keyPairName=matthewkeilbot \
+ *     --parameters TelegramBotTokenParam=<YOUR_TELEGRAM_TOKEN> \
+ *     --parameters AnthropicApiKeyParam=<YOUR_ANTHROPIC_KEY>
  *
  * Step 2: Deploy DnsStack with Elastic IP from Step 1
  *

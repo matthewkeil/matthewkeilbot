@@ -12,6 +12,8 @@ export interface DnsStackProps extends cdk.StackProps {
   subdomain?: string;
   /** Elastic IP address of the EC2 instance (from MatthewkeilbotStack) */
   elasticIp?: string;
+  /** External ID for assuming the delegation role (adds extra security layer) */
+  externalId?: string;
 }
 
 export class DnsStack extends cdk.Stack {
@@ -21,7 +23,14 @@ export class DnsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: DnsStackProps) {
     super(scope, id, props);
 
-    const { hostedZoneId, hostedZoneName, computeAccountId, subdomain = "bot", elasticIp } = props;
+    const {
+      hostedZoneId,
+      hostedZoneName,
+      computeAccountId,
+      subdomain = "bot",
+      elasticIp,
+      externalId = "matthewkeilbot-dns-delegation",
+    } = props;
 
     // Import the existing hosted zone
     this.hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, "HostedZone", {
@@ -29,10 +38,12 @@ export class DnsStack extends cdk.Stack {
       zoneName: hostedZoneName,
     });
 
-    // Create a role that can be assumed by the compute account (for future use if needed)
+    // Create a role that can be assumed by the compute account
+    // Uses external ID to prevent confused deputy attacks
     this.delegationRole = new iam.Role(this, "DnsDelegationRole", {
       roleName: `matthewkeilbot-dns-delegation-${this.region}`,
       assumedBy: new iam.AccountPrincipal(computeAccountId),
+      externalIds: [externalId],
       description: "Role for matthewkeilbot compute account to manage DNS records",
     });
 
@@ -77,6 +88,11 @@ export class DnsStack extends cdk.Stack {
       value: this.delegationRole.roleArn,
       description: "ARN of the DNS delegation role",
       exportName: "MatthewkeilbotDnsDelegationRoleArn",
+    });
+
+    new cdk.CfnOutput(this, "DelegationRoleExternalId", {
+      value: externalId,
+      description: "External ID required when assuming the delegation role",
     });
 
     new cdk.CfnOutput(this, "HostedZoneIdOutput", {

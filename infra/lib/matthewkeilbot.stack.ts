@@ -61,19 +61,46 @@ export class MatthewkeilbotStack extends cdk.Stack {
       })
     );
 
-    // Create SSM parameters for secrets (placeholders - set actual values via CLI)
-    new ssm.StringParameter(this, "TelegramBotToken", {
-      parameterName: "/matthewkeilbot/telegram/bot-token",
-      stringValue: "PLACEHOLDER_SET_VIA_CLI",
+    // Allow KMS decrypt for SSM SecureString parameters (uses AWS-managed SSM key)
+    instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["kms:Decrypt"],
+        resources: ["*"],
+        conditions: {
+          StringEquals: {
+            "kms:ViaService": `ssm.${this.region}.amazonaws.com`,
+          },
+        },
+      })
+    );
+
+    // CloudFormation parameters for secrets (NoEcho masks values in console)
+    const telegramTokenParam = new cdk.CfnParameter(this, "TelegramBotTokenParam", {
+      type: "String",
       description: "Telegram bot token for matthewkeilbot",
-      tier: ssm.ParameterTier.STANDARD,
+      noEcho: true,
     });
 
-    new ssm.StringParameter(this, "AnthropicApiKey", {
-      parameterName: "/matthewkeilbot/anthropic/api-key",
-      stringValue: "PLACEHOLDER_SET_VIA_CLI",
+    const anthropicKeyParam = new cdk.CfnParameter(this, "AnthropicApiKeyParam", {
+      type: "String",
       description: "Anthropic API key for matthewkeilbot",
-      tier: ssm.ParameterTier.STANDARD,
+      noEcho: true,
+    });
+
+    // Create SSM SecureString parameters using L1 construct
+    new ssm.CfnParameter(this, "TelegramBotToken", {
+      name: "/matthewkeilbot/telegram/bot-token",
+      type: "SecureString",
+      value: telegramTokenParam.valueAsString,
+      description: "Telegram bot token for matthewkeilbot",
+    });
+
+    new ssm.CfnParameter(this, "AnthropicApiKey", {
+      name: "/matthewkeilbot/anthropic/api-key",
+      type: "SecureString",
+      value: anthropicKeyParam.valueAsString,
+      description: "Anthropic API key for matthewkeilbot",
     });
 
     // User data script to bootstrap the instance
@@ -147,6 +174,7 @@ export class MatthewkeilbotStack extends cdk.Stack {
       role: instanceRole,
       userData,
       userDataCausesReplacement: true,
+      requireImdsv2: true, // Enforce IMDSv2 to prevent SSRF attacks
       blockDevices: [
         {
           deviceName: "/dev/sda1",
