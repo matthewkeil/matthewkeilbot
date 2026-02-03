@@ -3,7 +3,8 @@
     "allow": [
       "WebSearch",
       "WebFetch(domain:docs.openclaw.ai)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(npm run build:*)"
     ]
   }
 }
