@@ -30,6 +30,11 @@ Thumbs.db
 *.swp
 *.swo
 
+# Claude Code (local/personal files)
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/*.local.*
+
 # Logs
 *.log
 logs/
