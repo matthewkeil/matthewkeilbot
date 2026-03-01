@@ -31,22 +31,27 @@ PHASE 1: DESIGN             You act as the Architect in planning mode
 PHASE 2: ORGANIZATION       Create agent team
     |                        Spawn Architect + Devil's Advocate
     |                        Devil's Advocate challenges the spec
+    |                        Spawn Best Practices + Security Auditors
+    |                        All three audit the spec from their domains
+    |                        Architect addresses all findings
     |                        Architect creates task breakdown
     v
-PHASE 3: IMPLEMENTATION     Spawn Builder + all consultants
-    |                        Builder works through tasks, proactively consulting:
-    |                          Architect (repo context, file placement)
-    |                          Best Practices Specialist (idiomatic patterns)
-    |                          Security Auditors (security-sensitive operations)
+PHASE 3: IMPLEMENTATION     Spawn full team per work stream (parallel):
+    |                          Builder + Best Practices + Security Auditors
+    |                        Each Builder consults its dedicated specialists
+    |                        Per-stream review after each build completes
+    |                        As streams are approved, launch dependent streams
+    |                        Integration stream runs last for shared files
     v
 PHASE 4: TESTING & ROLLOUT  Spawn Testing & Rollout Specialist
     |                        Specialist + Architect design test strategy & rollout plan
     |                        Builder writes test playbooks
-    |                        User approves rollout plan
+    |                        User informed of rollout plan
     v
-PHASE 5: FORMAL REVIEW      Independent reviews by 3 domain specialists
-    |                        Devil's Advocate challenges each reviewer
-    |                        Builder fixes findings
+PHASE 5: FORMAL REVIEW      3 reviewers send findings to Devil's Advocate
+    |                        DA challenges each reviewer 1-on-1
+    |                        DA triages and reports to Lead
+    |                        Builder fixes Must Fix items
     |                        Up to 6 review-fix cycles
     v
 DONE                         Report to user
@@ -56,7 +61,7 @@ DONE                         Report to user
 
 ### Context Preservation
 - Each agent operates ONLY within their domain expertise
-- The **Builder** is the ONLY agent that writes code
+- **Builders** are the ONLY agents that write code (one Builder per active work stream)
 - The **Architect** is the ONLY agent with deep repo structure knowledge
 - The **Best Practices Specialist** is the ONLY authority on idiomatic Ansible
 - The **Security Auditors** are the ONLY authorities on security concerns
@@ -65,11 +70,22 @@ DONE                         Report to user
 - This preserves context windows for each agent's core work
 
 ### Communication Pattern
-- During implementation, the **Builder** drives communication by asking questions to consultants
-- Consultants do NOT proactively review the Builder's work during Phase 3 — they respond to questions
-- During formal review (Phase 5), the communication reverses: reviewers examine code and report findings
-- The **Devil's Advocate** communicates with reviewers during Phase 5 to challenge their findings
-- The **Architect** coordinates between phases but does NOT manage within-phase work
+- Each work stream has a dedicated team: Builder + Best Practices + Ansible Security + Linux Security
+- During build, **Builders** consult their dedicated stream specialists (no cross-stream contention)
+- After build, stream specialists review their Builder's code (per-stream review)
+- Builders do NOT coordinate with each other directly — they message the Architect if cross-stream issues arise
+- During formal review (Phase 5), reviewers send findings **directly to the Devil's Advocate** (not the Lead)
+- The **Devil's Advocate** is the review hub: receives findings, challenges each reviewer 1-on-1, triages, and reports to the Lead
+- This keeps detailed review discussions out of the Lead's context window
+- The **Architect** is the only shared agent — coordinates between phases and manages work stream scheduling
+
+### Parallel Build Rules
+- Full team per active work stream: `builder-ws<N>`, `bp-ws<N>`, `sec-ws<N>`, `linux-ws<N>`
+- No two concurrent streams may modify the same file (enforced by the Architect's stream design)
+- Shared files (Makefile, inventory, etc.) go in an integration stream that runs last
+- Each stream goes through: build → per-stream review → approved, before dependents can start
+- As streams are approved, the Architect evaluates which blocked streams are unblocked
+- The Lead spawns new stream teams for unblocked streams and shuts down completed teams
 
 ### Agent Profiles
 All agent profiles are in `.claude/agents/`. When spawning teammates, include the profile path in their spawn prompt so they load their role-specific knowledge:
@@ -91,22 +107,22 @@ Read the detailed instructions in [phase-1-design.md](phase-1-design.md) and exe
 ### Phase 2: Organization
 Read the detailed instructions in [phase-2-organization.md](phase-2-organization.md) and execute them.
 
-**Summary:** Create the agent team. Spawn an Architect and Devil's Advocate. The Devil's Advocate challenges the spec. The Architect refines it, then creates a task breakdown organized into work streams with dependencies. The Architect determines execution ordering.
+**Summary:** Create the agent team. Spawn an Architect and Devil's Advocate. The Devil's Advocate challenges the spec. Then spawn the Best Practices Specialist, Ansible Security Auditor, and Linux Security Auditor — all three audit the spec from their domain perspective in parallel. The Architect addresses all findings. Then the Architect creates a task breakdown organized into work streams with dependencies.
 
 ### Phase 3: Implementation
 Read the detailed instructions in [phase-3-implementation.md](phase-3-implementation.md) and execute them.
 
-**Summary:** Spawn the Builder and all consultant agents (Best Practices Specialist, Ansible Security Auditor, Linux Security Auditor). The Builder works through tasks, proactively asking consultants for guidance before and during writing. This is a slower but more thorough approach that produces higher quality output with fewer review cycles.
+**Summary:** Shut down Phase 2 spec auditors. Spawn a full team per active work stream: Builder + dedicated Best Practices Specialist + Ansible Security Auditor + Linux Security Auditor. Multiple stream teams run concurrently with zero contention. Each Builder proactively consults its dedicated specialists before writing. After build, the stream's specialists review the code (per-stream review). Once approved, the stream team is shut down and dependent streams are launched. An integration stream handles shared files last.
 
 ### Phase 4: Testing & Rollout
 Read the detailed instructions in [phase-4-testing.md](phase-4-testing.md) and execute them.
 
-**Summary:** Spawn the Testing & Rollout Specialist. They collaborate with the Architect to design a test strategy and rollout plan appropriate to the risk level. The Builder writes any test playbooks. The user approves the rollout plan before proceeding to review.
+**Summary:** Spawn the Testing & Rollout Specialist. They collaborate with the Architect to design a test strategy and rollout plan appropriate to the risk level. The Builder writes any test playbooks. The user is informed of the plan, then Phase 5 begins immediately.
 
 ### Phase 5: Formal Review
 Read the detailed instructions in [phase-5-review.md](phase-5-review.md) and execute them.
 
-**Summary:** Three independent domain reviews: Best Practices Specialist, Ansible Security Auditor, Linux Security Auditor. Each reviews in isolation. The Devil's Advocate works with each reviewer individually to challenge their findings and push for deeper analysis. The Devil's Advocate then triages the combined findings. The Builder fixes Must Fix items. Up to 6 review-fix cycles.
+**Summary:** Three independent domain reviews: Best Practices Specialist, Ansible Security Auditor, Linux Security Auditor. Each reviewer sends findings directly to the Devil's Advocate (not the Lead). The Devil's Advocate challenges each reviewer in 1-on-1 exchanges, then triages the combined findings and reports to the Lead. The Lead has the Builder fix Must Fix items. Up to 6 review-fix cycles. This keeps review detail out of the Lead's context.
 
 ## Phase Transitions
 
@@ -115,10 +131,13 @@ Before transitioning between phases, always:
 2. Inform the user which phase is completing and which is starting
 3. Read the detailed instructions for the next phase from its supporting file
 
+**Exception:** The Phase 3 → Phase 4 and Phase 4 → Phase 5 transitions do not wait for user confirmation. After implementation completes, proceed directly through Testing & Rollout into Formal Review. The user is informed at each transition but the workflow does not pause.
+
 ## Error Handling
 
 - If a teammate stops unexpectedly, spawn a replacement with the same role and context
-- If the Builder is blocked on a question, have it message the relevant consultant
+- If a Builder is blocked on a question, have it message the relevant consultant
+- If a Builder discovers a cross-stream file conflict, halt both streams and have the Architect reassign files
 - If consultants disagree, the Architect makes the final call on repo-specific concerns, the Best Practices Specialist on general Ansible concerns
 - If the user intervenes at any point, pause the current phase and address their input before continuing
 

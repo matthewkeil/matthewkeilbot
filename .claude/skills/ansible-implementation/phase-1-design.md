@@ -107,9 +107,17 @@ Ordered list of implementation tasks with dependencies:
 2. Task B (depends on A) - [description]
 
 ### Work Streams
-Group tasks into parallelizable streams:
+Group tasks into parallelizable streams. Each stream MUST have non-overlapping files
+with other parallel streams (no two concurrent streams may modify the same file).
+Any shared files (inventory, Makefile, etc.) go in an integration stream that runs
+after parallel streams complete.
+
 - **Stream 1**: Tasks A, B (sequential)
+  - Files: [list files this stream creates/modifies]
 - **Stream 2**: Task C (can run parallel to Stream 1 after Task A)
+  - Files: [list files this stream creates/modifies]
+- **Integration Stream**: Task D (depends on Streams 1 and 2)
+  - Files: [shared files like Makefile, inventory]
 
 ## Testing Considerations
 - What should a test playbook verify?

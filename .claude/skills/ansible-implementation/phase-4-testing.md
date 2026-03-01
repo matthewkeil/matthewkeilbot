@@ -112,7 +112,7 @@ Present the user with:
 3. **Rollout Plan**: Risk assessment, deployment sequence, gates, rollback plan
 4. **Manual Steps**: Any directives for the user (manual checks, monitoring to watch, etc.)
 
-Ask the user to review and approve the rollout plan before proceeding to formal review.
+Inform the user of the test strategy and rollout plan, then immediately proceed to Phase 5 — do not wait for user confirmation.
 
 ### Step 6: Devil's Advocate challenge (optional)
 
@@ -131,5 +131,5 @@ Phase 4 is complete when:
 - [ ] Test strategy is designed and documented
 - [ ] Test playbooks are written by the Builder (if applicable)
 - [ ] Rollout plan is designed with risk assessment, gates, and rollback
-- [ ] User has reviewed and approved the rollout plan
+- [ ] User has been informed of the rollout plan
 - [ ] All test-related tasks in the task list are complete
