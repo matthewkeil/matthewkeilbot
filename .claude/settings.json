@@ -3,7 +3,6 @@
     "allow": [
       "WebSearch",
       "WebFetch",
-      //
       "Bash(ls:*)",
       "Bash(find:*)",
       "Bash(tree:*)",
@@ -31,7 +30,6 @@
       "Bash(dig:*)",
       "Bash(nslookup:*)",
       "Bash(host:*)",
-      //
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
@@ -44,7 +42,6 @@
       "Bash(git merge-base:*)",
       "Bash(git checkout:*)",
       "Bash(git subtree:*)",
-      //
       "Bash(gh pr view:*)",
       "Bash(gh pr list:*)",
       "Bash(gh pr status:*)",
@@ -57,7 +54,6 @@
       "Bash(gh api:*)",
       "Bash(gh run view:*)",
       "Bash(gh run list:*)",
-      //
       "Bash(ansible-lint:*)",
       "Bash(ansible-playbook --syntax-check:*)",
       "Bash(ansible-playbook --check:*)",
@@ -66,7 +62,6 @@
       "Bash(ansible --version:*)",
       "Bash(ansible-config:*)",
       "Bash(yamllint:*)",
-      //
       "Bash(npm install:*)",
       "Bash(npm ci:*)",
       "Bash(npx tsc:*)",
