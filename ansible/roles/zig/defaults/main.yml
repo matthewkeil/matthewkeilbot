@@ -1,0 +1,6 @@
+---
+zig_version: "0.14.1"
+zig_install_dir: /opt
+zig_symlink_dir: /usr/local/bin
+zig_checksum: ""
+zig_cleanup_old_versions: true

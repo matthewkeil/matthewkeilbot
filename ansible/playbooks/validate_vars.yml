@@ -1,0 +1,89 @@
+---
+- name: Validate prerequisite variables
+  hosts: vps
+  connection: local
+  gather_facts: false
+
+  tasks:
+    # Vault variables
+    - name: Assert SSH port is defined and numeric
+      ansible.builtin.assert:
+        that:
+          - ssh_port is defined
+          - ssh_port | string | regex_search('^\d+$')
+        fail_msg: >-
+          vault_ssh_port must be a numeric value.
+          Run `make vault-edit` to set it.
+
+    - name: Assert devops SSH public key is configured
+      ansible.builtin.assert:
+        that:
+          - devops_ssh_public_key is defined
+          - devops_ssh_public_key | length > 0
+          - devops_ssh_public_key is match('^ssh-')
+        fail_msg: >-
+          vault_devops_ssh_public_key must be set and start with 'ssh-'.
+          Run `make vault-edit`.
+
+    - name: Assert OpenClaw port is defined and numeric
+      ansible.builtin.assert:
+        that:
+          - openclaw_port is defined
+          - openclaw_port | string | regex_search('^\d+$')
+        fail_msg: >-
+          vault_openclaw_port must be a numeric value.
+          Run `make vault-edit` to set it.
+
+    # Checksum variables
+    - name: Assert node_exporter checksum is provided
+      ansible.builtin.assert:
+        that:
+          - monitoring_node_exporter_checksum | length > 0
+        fail_msg: >-
+          monitoring_node_exporter_checksum is empty.
+          Set it in group_vars/all/vars.yml.
+
+    - name: Assert n checksum is provided
+      ansible.builtin.assert:
+        that:
+          - node_n_checksum | length > 0
+        fail_msg: >-
+          node_n_checksum is empty.
+          Set it in group_vars/all/vars.yml.
+
+    - name: Assert Zig checksum is provided
+      ansible.builtin.assert:
+        that:
+          - zig_checksum | length > 0
+        fail_msg: >-
+          zig_checksum is empty.
+          Set it in group_vars/all/vars.yml.
+
+    - name: Assert Rust rustup checksum is provided
+      ansible.builtin.assert:
+        that:
+          - rust_rustup_checksum | length > 0
+        fail_msg: >-
+          rust_rustup_checksum is empty.
+          Set it in group_vars/all/vars.yml.
+
+    - name: Assert pyenv commit SHA is provided
+      ansible.builtin.assert:
+        that:
+          - python_pyenv_commit_sha | length > 0
+        fail_msg: >-
+          python_pyenv_commit_sha is empty.
+          Set it in group_vars/all/vars.yml.
+
+    # Structural checks
+    - name: Assert service_users is a non-empty list
+      ansible.builtin.assert:
+        that:
+          - service_users is defined
+          - service_users is iterable
+          - service_users | length > 0
+        fail_msg: "service_users must be a non-empty list."
+
+    - name: All prerequisite variables validated
+      ansible.builtin.debug:
+        msg: "All prerequisite variables are properly configured."

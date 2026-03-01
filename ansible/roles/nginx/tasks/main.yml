@@ -1,0 +1,86 @@
+---
+# 1. Install nginx
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+  notify: Start nginx
+
+# 2. Deploy base nginx.conf
+- name: Deploy nginx configuration
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+    validate: "nginx -t -c %s"
+  notify: Reload nginx
+
+# 3. Set up sites-available / sites-enabled pattern
+- name: Ensure sites-available directory exists
+  ansible.builtin.file:
+    path: /etc/nginx/sites-available
+    state: directory
+    owner: root
+    group: www-data
+    mode: "0750"
+
+- name: Ensure sites-enabled directory exists
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled
+    state: directory
+    owner: root
+    group: www-data
+    mode: "0750"
+
+- name: Remove default site from sites-enabled
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  when: nginx_remove_default_site
+
+- name: Remove default site from sites-available
+  ansible.builtin.file:
+    path: /etc/nginx/sites-available/default
+    state: absent
+  when: nginx_remove_default_site
+
+# 4. Deploy catch-all default server
+- name: Deploy default catch-all configuration
+  ansible.builtin.template:
+    src: default-catchall.conf.j2
+    dest: /etc/nginx/sites-available/00-default-catchall.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable default catch-all site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/00-default-catchall.conf
+    dest: /etc/nginx/sites-enabled/00-default-catchall.conf
+    state: link
+  notify: Reload nginx
+
+# 5. Deploy example site template
+- name: Deploy example site documentation
+  ansible.builtin.template:
+    src: example-site.conf.j2.example
+    dest: /etc/nginx/sites-available/README-example-site.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+# 6. Validate and start
+- name: Validate nginx configuration
+  ansible.builtin.command:
+    cmd: nginx -t
+  changed_when: false
+
+- name: Ensure nginx is enabled and started
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true

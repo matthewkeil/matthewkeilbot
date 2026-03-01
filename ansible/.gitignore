@@ -1,0 +1,6 @@
+*.retry
+.ansible_cache/
+*.pyc
+__pycache__/
+.vault_pass
+*.unencrypted

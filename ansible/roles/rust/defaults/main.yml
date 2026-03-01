@@ -1,0 +1,15 @@
+---
+rust_rustup_home: /opt/rust/rustup
+rust_cargo_home: /opt/rust/cargo
+rust_symlink_dir: /usr/local/bin
+rust_toolchain: stable
+rust_rustup_version: "1.27.1"
+rust_rustup_checksum: ""
+rust_symlinks:
+  - rustc
+  - cargo
+  - rustup
+  - rustfmt
+  - clippy-driver
+  - cargo-clippy
+  - cargo-fmt

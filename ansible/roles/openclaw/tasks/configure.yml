@@ -1,0 +1,68 @@
+---
+- name: Create OpenClaw config directory
+  ansible.builtin.file:
+    path: "{{ openclaw_home }}/.openclaw"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: "0700"
+
+# Auth token management
+- name: Check if gateway token exists
+  ansible.builtin.stat:
+    path: "{{ openclaw_home }}/.openclaw/gateway-token"
+  register: openclaw_gateway_token_file
+
+- name: Generate auth token on first deploy
+  ansible.builtin.command:
+    cmd: openssl rand -hex 32
+  register: openclaw_generated_token
+  changed_when: false
+  when:
+    - openclaw_generate_auth_token
+    - not openclaw_gateway_token_file.stat.exists
+  no_log: true
+
+- name: Store auth token
+  ansible.builtin.copy:
+    dest: "{{ openclaw_home }}/.openclaw/gateway-token"
+    content: "{{ openclaw_generated_token.stdout }}"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: "0600"
+  when:
+    - openclaw_generate_auth_token
+    - not openclaw_gateway_token_file.stat.exists
+  no_log: true
+
+- name: Read existing auth token
+  ansible.builtin.slurp:
+    src: "{{ openclaw_home }}/.openclaw/gateway-token"
+  register: openclaw_existing_token
+  no_log: true
+
+- name: Set auth token fact
+  ansible.builtin.set_fact:
+    openclaw_auth_token: "{{ openclaw_existing_token.content | b64decode | trim }}"
+  no_log: true
+
+# Config file
+- name: Deploy OpenClaw config file
+  ansible.builtin.template:
+    src: openclaw-config.json5.j2
+    dest: "{{ openclaw_home }}/.openclaw/config.json5"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: "0600"
+  notify: Restart openclaw
+  no_log: true
+
+# Env file
+- name: Deploy OpenClaw environment file
+  ansible.builtin.template:
+    src: openclaw-env.j2
+    dest: "{{ openclaw_home }}/.openclaw/env"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: "0600"
+  notify: Restart openclaw

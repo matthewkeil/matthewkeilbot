@@ -1,0 +1,6 @@
+---
+- name: Configure node_exporter
+  ansible.builtin.import_tasks: node_exporter.yml
+
+- name: Configure alerting
+  ansible.builtin.import_tasks: alerting.yml

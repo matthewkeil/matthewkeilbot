@@ -1,0 +1,16 @@
+---
+- name: Check Tailscale backend state
+  ansible.builtin.command:
+    cmd: tailscale status --json
+  register: openclaw_ts_status
+  failed_when: false
+  changed_when: false
+
+- name: Configure Tailscale Serve for OpenClaw
+  ansible.builtin.command:
+    cmd: "tailscale serve --https={{ openclaw_port }} http://127.0.0.1:{{ openclaw_port }}"
+  register: openclaw_ts_serve_result
+  changed_when: false
+  when:
+    - openclaw_ts_status.rc == 0
+    - (openclaw_ts_status.stdout | from_json).BackendState == "Running"

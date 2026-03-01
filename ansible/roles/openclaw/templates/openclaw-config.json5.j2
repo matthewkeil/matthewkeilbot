@@ -1,0 +1,17 @@
+{
+  gateway: {
+    bind: "{{ openclaw_gateway_bind }}",
+    port: {{ openclaw_port }},
+    authToken: "{{ openclaw_auth_token }}",
+    controlUI: true,
+  },
+  sandbox: {
+    mode: "{{ openclaw_sandbox_mode }}",
+  },
+  discovery: {
+    mdns: "{{ openclaw_discovery_mdns }}",
+  },
+  log: {
+    redactSensitive: "{{ openclaw_log_redact_sensitive }}",
+  },
+}

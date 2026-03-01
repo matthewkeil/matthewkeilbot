@@ -1,0 +1,68 @@
+---
+- name: Check Tailscale backend state
+  ansible.builtin.command:
+    cmd: tailscale status --json
+  register: tailscale_status
+  changed_when: false
+
+- name: Parse Tailscale backend state
+  ansible.builtin.set_fact:
+    tailscale_backend_state: "{{ (tailscale_status.stdout | from_json).BackendState }}"
+
+- name: Fail if Tailscale needs login and no auth key provided
+  ansible.builtin.fail:
+    msg: >-
+      Tailscale is in NeedsLogin state but no auth key was provided.
+      Run the playbook with: -e tailscale_auth_key=tskey-auth-...
+      Generate an ephemeral, single-use key from the Tailscale admin console.
+  when:
+    - tailscale_backend_state == "NeedsLogin"
+    - tailscale_auth_key | length == 0
+
+- name: Authenticate to tailnet
+  ansible.builtin.command:
+    cmd: "tailscale up --authkey={{ tailscale_auth_key }} {{ tailscale_up_args }}"
+  when:
+    - tailscale_backend_state == "NeedsLogin"
+    - tailscale_auth_key | length > 0
+  register: tailscale_up_result
+  changed_when: tailscale_up_result.rc == 0
+  failed_when: false
+  no_log: true
+
+- name: Fail if Tailscale authentication failed
+  ansible.builtin.fail:
+    msg: >-
+      Tailscale authentication failed. The auth key may be expired or invalid.
+      Generate a new ephemeral, single-use key from the Tailscale admin console.
+  when:
+    - tailscale_up_result is not skipped
+    - tailscale_up_result.rc != 0
+
+- name: Enable Tailscale auto-updates
+  ansible.builtin.command:
+    cmd: tailscale set --auto-update
+  changed_when: false
+  when: tailscale_auto_update
+
+- name: Verify tailscale0 interface exists
+  ansible.builtin.stat:
+    path: /sys/class/net/tailscale0
+  register: tailscale_interface
+
+- name: Fail if tailscale0 interface is missing
+  ansible.builtin.fail:
+    msg: >-
+      The tailscale0 network interface does not exist. Tailscale may not be
+      properly authenticated or the daemon may not be running.
+  when: not tailscale_interface.stat.exists
+
+- name: Display Tailscale status
+  ansible.builtin.command:
+    cmd: tailscale status
+  register: tailscale_status_output
+  changed_when: false
+
+- name: Show Tailscale status
+  ansible.builtin.debug:
+    var: tailscale_status_output.stdout_lines

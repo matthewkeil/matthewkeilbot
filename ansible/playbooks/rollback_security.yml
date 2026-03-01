@@ -1,0 +1,9 @@
+---
+# TODO: Implement rollback — revert SSH config to backup, reset UFW to allow port 22
+- name: Rollback security (stub)
+  hosts: vps
+
+  tasks:
+    - name: Security rollback not yet implemented
+      ansible.builtin.debug:
+        msg: "Security rollback is not yet implemented. Manually revert SSH config and UFW rules."

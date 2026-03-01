@@ -1,0 +1,23 @@
+---
+- name: Create monitoring directory
+  ansible.builtin.file:
+    path: /opt/monitoring
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Deploy alert check script
+  ansible.builtin.template:
+    src: alert-check.sh.j2
+    dest: /opt/monitoring/alert-check.sh
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Configure alert check cron job
+  ansible.builtin.cron:
+    name: monitoring-alert-check
+    minute: "{{ monitoring_alert_cron_minute }}"
+    job: /opt/monitoring/alert-check.sh
+    user: root

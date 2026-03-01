@@ -1,0 +1,44 @@
+# Managed by Ansible — do not edit manually
+# {{ ansible_managed }}
+
+Port {{ security_ssh_port }}
+AddressFamily any
+ListenAddress 0.0.0.0
+ListenAddress ::
+
+# Authentication
+PermitRootLogin {{ security_ssh_permit_root_login }}
+MaxAuthTries {{ security_ssh_max_auth_tries }}
+LoginGraceTime {{ security_ssh_login_grace_time }}
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+PasswordAuthentication {{ security_ssh_password_authentication }}
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+UsePAM yes
+
+# Access control
+AllowUsers {{ security_ssh_allow_users | join(' ') }}
+{% if security_ssh_deny_users | length > 0 %}
+DenyUsers {{ security_ssh_deny_users | join(' ') }}
+{% endif %}
+
+# Security
+StrictModes yes
+IgnoreRhosts yes
+HostbasedAuthentication no
+X11Forwarding {{ security_ssh_x11_forwarding }}
+AllowTcpForwarding no
+AllowAgentForwarding no
+PermitTunnel no
+
+# Keep-alive
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Logging
+SyslogFacility AUTH
+LogLevel VERBOSE
+
+# No SFTP subsystem

@@ -1,0 +1,42 @@
+---
+- name: Verify tailscaled is running
+  ansible.builtin.systemd:
+    name: tailscaled
+  register: tailscale_tailscaled_service
+
+- name: Fail if tailscaled is not running
+  ansible.builtin.fail:
+    msg: "tailscaled service is not running. Cannot configure Tailscale Serve."
+  when: tailscale_tailscaled_service.status.ActiveState != "active"
+
+- name: Get current Tailscale Serve status
+  ansible.builtin.command:
+    cmd: tailscale serve status
+  register: tailscale_serve_before
+  changed_when: false
+  failed_when: false
+
+- name: Configure Tailscale Serve for each service
+  ansible.builtin.command:
+    cmd: "tailscale serve --{{ item.proto | default('https') }}={{ item.port }} {{ item.backend }}"
+  loop: "{{ tailscale_serve_services }}"
+  loop_control:
+    label: "{{ item.proto | default('https') }}:{{ item.port }} -> {{ item.backend }}"
+  register: tailscale_serve_result
+  changed_when: false
+
+- name: Get final Tailscale Serve status
+  ansible.builtin.command:
+    cmd: tailscale serve status
+  register: tailscale_serve_after
+  changed_when: false
+  failed_when: false
+
+- name: Report Serve configuration change
+  ansible.builtin.debug:
+    msg: "Tailscale Serve configuration updated"
+  changed_when: tailscale_serve_before.stdout != tailscale_serve_after.stdout
+
+- name: Show final Tailscale Serve status
+  ansible.builtin.debug:
+    var: tailscale_serve_after.stdout_lines

@@ -1,0 +1,12 @@
+// Managed by Ansible — do not edit manually
+// {{ ansible_managed }}
+
+Unattended-Upgrade::Allowed-Origins {
+{% for origin in security_unattended_upgrades_origins %}
+    "{{ origin }}";
+{% endfor %}
+};
+
+Unattended-Upgrade::Automatic-Reboot "{{ security_unattended_upgrades_auto_reboot | lower }}";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";

@@ -1,0 +1,22 @@
+---
+- name: Deploy OpenClaw
+  hosts: vps
+  become: true
+
+  pre_tasks:
+    - name: Verify Node.js is available
+      ansible.builtin.command:
+        cmd: node --version
+      register: node_check
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Node.js is installed
+      ansible.builtin.assert:
+        that:
+          - node_check.rc == 0
+        fail_msg: >-
+          Node.js is not available. Run `make toolchain` before deploying OpenClaw.
+
+  roles:
+    - openclaw

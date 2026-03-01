@@ -1,0 +1,13 @@
+---
+- name: Install Tailscale
+  ansible.builtin.import_tasks: install.yml
+
+- name: Authenticate to tailnet
+  ansible.builtin.import_tasks: authenticate.yml
+
+- name: Configure firewall for Tailscale
+  ansible.builtin.import_tasks: firewall.yml
+
+- name: Configure Tailscale Serve
+  ansible.builtin.include_tasks: serve.yml
+  when: tailscale_serve_services | length > 0

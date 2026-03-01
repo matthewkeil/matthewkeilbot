@@ -1,0 +1,26 @@
+# Managed by Ansible — do not edit manually
+# {{ ansible_managed }}
+
+[Unit]
+Description=Prometheus Node Exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ monitoring_node_exporter_user }}
+ExecStart=/usr/local/bin/node_exporter --web.listen-address={{ monitoring_node_exporter_listen }}
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

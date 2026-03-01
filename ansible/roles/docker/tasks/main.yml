@@ -1,0 +1,104 @@
+---
+# 1. Install prerequisites (safety net — common role installs these too)
+- name: Install Docker prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+
+# 2. Add Docker GPG key
+- name: Ensure keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download Docker GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /tmp/docker-archive-keyring.asc
+    mode: "0644"
+
+- name: Dearmor Docker GPG key
+  ansible.builtin.command:
+    cmd: gpg --dearmor -o /etc/apt/keyrings/docker.gpg /tmp/docker-archive-keyring.asc
+    creates: /etc/apt/keyrings/docker.gpg
+
+- name: Set Docker GPG key permissions
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/docker.gpg
+    mode: "0644"
+
+- name: Clean up armored Docker GPG key
+  ansible.builtin.file:
+    path: /tmp/docker-archive-keyring.asc
+    state: absent
+
+# 3. Add Docker repository
+- name: Detect system architecture
+  ansible.builtin.command:
+    cmd: dpkg --print-architecture
+  register: docker_dpkg_arch
+  changed_when: false
+
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ docker_dpkg_arch.stdout }}
+      signed-by=/etc/apt/keyrings/docker.gpg]
+      https://download.docker.com/linux/ubuntu
+      {{ ansible_distribution_release }} stable
+    filename: docker
+    state: present
+
+# 4. Install Docker packages
+- name: Install Docker packages
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: true
+  notify: Restart docker
+
+# 5. Manage Docker group membership
+- name: Add authorized users to docker group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"
+
+- name: Remove denied users from docker group
+  ansible.builtin.command:
+    cmd: "gpasswd -d {{ item }} docker"
+  loop: "{{ docker_denied_users }}"
+  register: docker_gpasswd_result
+  failed_when:
+    - docker_gpasswd_result.rc != 0
+    - "'is not a member of' not in docker_gpasswd_result.stderr"
+  changed_when: "'removed' in docker_gpasswd_result.stderr"
+
+# 6. Configure Docker daemon (conditional)
+- name: Deploy Docker daemon configuration
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: "{{ docker_daemon_config | to_nice_json }}\n"
+    owner: root
+    group: docker
+    mode: "0640"
+  notify: Restart docker
+  when: docker_daemon_config | length > 0
+
+# 7. Enable services
+- name: Enable and start Docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Enable and start containerd service
+  ansible.builtin.systemd:
+    name: containerd
+    state: started
+    enabled: true

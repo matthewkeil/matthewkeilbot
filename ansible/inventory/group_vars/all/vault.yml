@@ -1,0 +1,4 @@
+---
+vault_ssh_port: 22
+vault_devops_ssh_public_key: "ssh-ed25519 AAAA... devops@matthewkeilbot"
+vault_openclaw_port: 18789

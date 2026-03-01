@@ -1,0 +1,9 @@
+---
+users_devops_name: "{{ devops_user | default('devops') }}"
+users_devops_ssh_public_key: "{{ devops_ssh_public_key }}"
+users_devops_shell: /bin/bash
+users_devops_groups:
+  - sudo
+users_service_accounts: "{{ service_users | default([]) }}"
+users_service_shell: /usr/sbin/nologin
+users_service_home_mode: "0700"

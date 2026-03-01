@@ -1,0 +1,72 @@
+---
+# 1. Update and upgrade packages
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Dist-upgrade all packages
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: true
+    autoclean: true
+
+- name: Check if reboot is required
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: common_reboot_required
+
+- name: Reboot if required
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+  when: common_reboot_required.stat.exists
+
+# 2. Install essential packages
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+
+# 3. Set timezone
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ common_timezone }}"
+
+# 4. Configure locale
+- name: Generate locale
+  community.general.locale_gen:
+    name: "{{ common_locale }}"
+    state: present
+
+- name: Configure default locale
+  ansible.builtin.copy:
+    dest: /etc/default/locale
+    content: |
+      LANG={{ common_locale }}
+      LC_ALL={{ common_locale }}
+    owner: root
+    group: root
+    mode: "0644"
+
+# 5. Set hostname
+- name: Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ common_hostname }}"
+
+- name: Ensure hostname entry in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1'
+    line: "127.0.1.1 {{ common_hostname }}"
+    state: present
+
+# 6. Configure journald
+- name: Limit journald disk usage
+  community.general.ini_file:
+    path: /etc/systemd/journald.conf
+    section: Journal
+    option: SystemMaxUse
+    value: 500M
+    no_extra_spaces: true
+    mode: "0644"
+  notify: Restart journald

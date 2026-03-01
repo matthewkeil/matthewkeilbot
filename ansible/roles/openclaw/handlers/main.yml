@@ -1,0 +1,10 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart openclaw
+  ansible.builtin.systemd:
+    name: "openclaw@{{ openclaw_bot_name }}"
+    state: restarted
+    enabled: true

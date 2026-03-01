@@ -1,0 +1,19 @@
+---
+- name: System layer setup
+  hosts: vps
+  become: true
+
+  pre_tasks:
+    - name: Assert devops SSH public key is configured
+      ansible.builtin.assert:
+        that:
+          - devops_ssh_public_key is defined
+          - devops_ssh_public_key | length > 0
+        fail_msg: >-
+          devops_ssh_public_key is not set. Run `make vault-edit` to configure
+          vault_devops_ssh_public_key with the SSH public key for the devops user.
+
+  roles:
+    - common
+    - users
+    - security

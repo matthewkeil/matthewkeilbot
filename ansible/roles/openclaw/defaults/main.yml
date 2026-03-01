@@ -1,0 +1,19 @@
+---
+openclaw_version: "latest"
+openclaw_bot_name: "matthewkeilbot"
+openclaw_user: "matthewkeilbot"
+openclaw_home: "/home/matthewkeilbot"
+openclaw_port: 18789
+openclaw_gateway_bind: "loopback"
+openclaw_sandbox_mode: "container"
+openclaw_generate_auth_token: true
+openclaw_discovery_mdns: "off"
+openclaw_log_redact_sensitive: tools
+openclaw_max_processes: 150
+openclaw_max_open_files: 8192
+openclaw_restart_sec: 10
+openclaw_start_limit_interval: 300
+openclaw_start_limit_burst: 5
+openclaw_tailscale_serve: true
+openclaw_health_check_retries: 5
+openclaw_health_check_delay: 5

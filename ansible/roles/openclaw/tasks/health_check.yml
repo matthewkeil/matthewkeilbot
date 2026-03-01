@@ -1,0 +1,21 @@
+---
+- name: Wait for OpenClaw to become healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ openclaw_port }}/"
+    method: GET
+    status_code:
+      - 200
+      - 302
+  register: openclaw_health_check
+  retries: "{{ openclaw_health_check_retries }}"
+  delay: "{{ openclaw_health_check_delay }}"
+  until: openclaw_health_check.status in [200, 302]
+
+- name: Display deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "OpenClaw deployment complete"
+      - "Service: openclaw@{{ openclaw_bot_name }}"
+      - "Port: {{ openclaw_port }}"
+      - "Status: {{ openclaw_health_check.status }}"
+      - "Access: Tailscale Serve (HTTPS)"

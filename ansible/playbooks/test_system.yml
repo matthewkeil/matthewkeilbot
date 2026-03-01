@@ -1,0 +1,492 @@
+---
+- name: System layer verification tests
+  hosts: vps
+  become: true
+  gather_facts: true
+
+  tasks:
+    # ── Common role verification ──────────────────────────────────
+    - name: Verify hostname
+      ansible.builtin.command:
+        cmd: hostname
+      register: test_hostname
+      changed_when: false
+
+    - name: Assert hostname matches expected value
+      ansible.builtin.assert:
+        that:
+          - test_hostname.stdout == system_hostname
+        fail_msg: >-
+          Hostname is '{{ test_hostname.stdout }}',
+          expected '{{ system_hostname }}'.
+
+    - name: Verify timezone
+      ansible.builtin.command:
+        cmd: timedatectl show -p Timezone --value
+      register: test_timezone
+      changed_when: false
+
+    - name: Assert timezone matches expected value
+      ansible.builtin.assert:
+        that:
+          - test_timezone.stdout == system_timezone
+        fail_msg: >-
+          Timezone is '{{ test_timezone.stdout }}',
+          expected '{{ system_timezone }}'.
+
+    - name: Verify locale
+      ansible.builtin.command:
+        cmd: localectl status
+      register: test_locale
+      changed_when: false
+
+    - name: Assert locale is configured
+      ansible.builtin.assert:
+        that:
+          - system_locale in test_locale.stdout
+        fail_msg: >-
+          Locale '{{ system_locale }}' not found
+          in localectl output.
+
+    - name: Verify essential packages are installed
+      ansible.builtin.command:
+        cmd: "dpkg -l {{ item }}"
+      loop:
+        - curl
+        - git
+        - jq
+        - htop
+        - net-tools
+        - lsof
+      register: test_packages
+      changed_when: false
+
+    - name: Assert essential packages are installed
+      ansible.builtin.assert:
+        that:
+          - item.rc == 0
+        fail_msg: "Package '{{ item.item }}' is not installed."
+      loop: "{{ test_packages.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Check journal disk usage
+      ansible.builtin.command:
+        cmd: journalctl --disk-usage
+      register: test_journal_usage
+      changed_when: false
+
+    - name: Display journal disk usage
+      ansible.builtin.debug:
+        msg: "{{ test_journal_usage.stdout }}"
+
+    # ── Users role verification ───────────────────────────────────
+    - name: Verify devops user exists
+      ansible.builtin.command:
+        cmd: id devops
+      register: test_devops_id
+      changed_when: false
+
+    - name: Assert devops user exists
+      ansible.builtin.assert:
+        that:
+          - test_devops_id.rc == 0
+        fail_msg: "User 'devops' does not exist."
+
+    - name: Verify devops group membership
+      ansible.builtin.command:
+        cmd: groups devops
+      register: test_devops_groups
+      changed_when: false
+
+    - name: Assert devops is in sudo group
+      ansible.builtin.assert:
+        that:
+          - "'sudo' in test_devops_groups.stdout"
+        fail_msg: "User 'devops' is not in the sudo group."
+
+    - name: Check devops home directory
+      ansible.builtin.stat:
+        path: /home/devops
+      register: test_devops_home
+
+    - name: Assert devops home directory is correct
+      ansible.builtin.assert:
+        that:
+          - test_devops_home.stat.exists
+          - test_devops_home.stat.mode == '0700'
+          - test_devops_home.stat.pw_name == 'devops'
+        fail_msg: >-
+          /home/devops does not exist or has wrong
+          permissions/ownership.
+
+    - name: Check devops sudoers file
+      ansible.builtin.stat:
+        path: /etc/sudoers.d/devops
+      register: test_devops_sudoers
+
+    - name: Assert devops sudoers file exists with correct mode
+      ansible.builtin.assert:
+        that:
+          - test_devops_sudoers.stat.exists
+          - test_devops_sudoers.stat.mode == '0440'
+        fail_msg: >-
+          /etc/sudoers.d/devops does not exist or has
+          wrong permissions.
+
+    # ── Security role verification ────────────────────────────────
+
+    # SSH
+    - name: "SSH - get effective sshd configuration"
+      ansible.builtin.command:
+        cmd: sshd -T
+      register: test_sshd_config
+      changed_when: false
+
+    - name: "SSH - assert security settings are enforced"
+      ansible.builtin.assert:
+        that:
+          - >-
+            'port ' ~ ssh_port | string
+            in test_sshd_config.stdout
+          - >-
+            'permitrootlogin no'
+            in test_sshd_config.stdout
+          - >-
+            'passwordauthentication no'
+            in test_sshd_config.stdout
+          - >-
+            'maxauthtries 3'
+            in test_sshd_config.stdout
+          - >-
+            'allowusers ' ~ devops_user
+            in test_sshd_config.stdout
+          - >-
+            'permitemptypasswords no'
+            in test_sshd_config.stdout
+          - >-
+            'x11forwarding no'
+            in test_sshd_config.stdout
+        fail_msg: >-
+          One or more SSH security settings
+          are not correctly applied.
+
+    - name: "SSH - get listening ports"
+      ansible.builtin.command:
+        cmd: ss -tlnp
+      register: test_ss_output
+      changed_when: false
+
+    - name: "SSH - assert custom port is listening"
+      ansible.builtin.assert:
+        that:
+          - >-
+            ':' ~ ssh_port | string
+            in test_ss_output.stdout
+        fail_msg: >-
+          sshd is not listening on port {{ ssh_port }}.
+
+    - name: "SSH - assert port 22 is NOT listening (unless custom port IS 22)"
+      ansible.builtin.assert:
+        that:
+          - >-
+            ssh_port | int == 22
+            or ':22 ' not in test_ss_output.stdout
+        fail_msg: >-
+          sshd is still listening on port 22
+          in addition to custom port.
+
+    # UFW
+    - name: "UFW - get verbose status"
+      ansible.builtin.command:
+        cmd: ufw status verbose
+      register: test_ufw_status
+      changed_when: false
+
+    - name: "UFW - assert firewall is active with correct defaults"
+      ansible.builtin.assert:
+        that:
+          - "'Status: active' in test_ufw_status.stdout"
+          - >-
+            'Default: deny (incoming)'
+            in test_ufw_status.stdout
+          - >-
+            ssh_port | string ~ '/tcp'
+            in test_ufw_status.stdout
+          - "'80/tcp' in test_ufw_status.stdout"
+          - "'443/tcp' in test_ufw_status.stdout"
+        fail_msg: >-
+          UFW configuration does not match expected state.
+
+    - name: "UFW - check node_exporter not publicly exposed"
+      ansible.builtin.shell: |
+        set -o pipefail
+        ufw status | grep '9100' | grep -v 'on tailscale0' | grep -c 'ALLOW' || echo '0'
+      args:
+        executable: /bin/bash
+      changed_when: false
+      register: test_9100_public
+
+    - name: "UFW - assert node_exporter only on tailscale0"
+      ansible.builtin.assert:
+        that:
+          - "test_9100_public.stdout | trim == '0'"
+        fail_msg: >-
+          Port 9100 (node_exporter) is exposed publicly --
+          should only be on tailscale0.
+
+    # fail2ban
+    - name: Check fail2ban service state
+      ansible.builtin.systemd:
+        name: fail2ban
+      register: test_fail2ban
+
+    - name: Assert fail2ban is running
+      ansible.builtin.assert:
+        that:
+          - test_fail2ban.status.ActiveState == 'active'
+        fail_msg: "fail2ban is not active."
+
+    - name: Check fail2ban sshd jail
+      ansible.builtin.command:
+        cmd: fail2ban-client status sshd
+      register: test_fail2ban_sshd
+      changed_when: false
+
+    - name: Assert fail2ban sshd jail is configured
+      ansible.builtin.assert:
+        that:
+          - test_fail2ban_sshd.rc == 0
+        fail_msg: "fail2ban sshd jail is not configured."
+
+    # sysctl
+    - name: "Sysctl - read critical kernel parameters"
+      ansible.builtin.command:
+        cmd: "sysctl {{ item }}"
+      changed_when: false
+      register: test_sysctl_values
+      loop:
+        - kernel.randomize_va_space
+        - kernel.kptr_restrict
+        - kernel.dmesg_restrict
+        - net.ipv4.tcp_syncookies
+        - net.ipv4.conf.all.rp_filter
+        - net.ipv4.conf.all.accept_redirects
+        - net.ipv4.conf.all.send_redirects
+        - net.ipv4.conf.all.accept_source_route
+        - net.ipv6.conf.all.accept_redirects
+        - net.ipv4.icmp_ignore_bogus_error_responses
+        - net.ipv4.tcp_rfc1337
+
+    - name: "Sysctl - assert critical security parameters"
+      ansible.builtin.assert:
+        that:
+          - >-
+            (_r | selectattr('item', 'eq', 'kernel.randomize_va_space')
+            | first).stdout.split('=')[1] | trim == '2'
+          - >-
+            (_r | selectattr('item', 'eq', 'kernel.kptr_restrict')
+            | first).stdout.split('=')[1] | trim == '2'
+          - >-
+            (_r | selectattr('item', 'eq', 'kernel.dmesg_restrict')
+            | first).stdout.split('=')[1] | trim == '1'
+          - >-
+            (_r | selectattr('item', 'eq', 'net.ipv4.tcp_syncookies')
+            | first).stdout.split('=')[1] | trim == '1'
+          - >-
+            (_r | selectattr('item', 'eq', 'net.ipv4.conf.all.rp_filter')
+            | first).stdout.split('=')[1] | trim == '1'
+          - >-
+            (_r | selectattr('item', 'eq', 'net.ipv4.conf.all.accept_redirects')
+            | first).stdout.split('=')[1] | trim == '0'
+          - >-
+            (_r | selectattr('item', 'eq', 'net.ipv4.conf.all.send_redirects')
+            | first).stdout.split('=')[1] | trim == '0'
+          - >-
+            (_r | selectattr('item', 'eq', 'net.ipv4.conf.all.accept_source_route')
+            | first).stdout.split('=')[1] | trim == '0'
+          - >-
+            (_r | selectattr('item', 'eq', 'net.ipv6.conf.all.accept_redirects')
+            | first).stdout.split('=')[1] | trim == '0'
+          - >-
+            (_r | selectattr('item', 'eq', 'net.ipv4.icmp_ignore_bogus_error_responses')
+            | first).stdout.split('=')[1] | trim == '1'
+          - >-
+            (_r | selectattr('item', 'eq', 'net.ipv4.tcp_rfc1337')
+            | first).stdout.split('=')[1] | trim == '1'
+        fail_msg: >-
+          One or more sysctl security parameters
+          are not correctly applied.
+      vars:
+        _r: "{{ test_sysctl_values.results }}"
+
+    # auditd
+    - name: "Auditd - check service state"
+      ansible.builtin.systemd:
+        name: auditd
+      register: test_auditd
+
+    - name: "Auditd - assert service is running"
+      ansible.builtin.assert:
+        that:
+          - test_auditd.status.ActiveState == 'active'
+        fail_msg: "auditd is not active."
+
+    - name: "Auditd - list active rules"
+      ansible.builtin.command:
+        cmd: auditctl -l
+      register: test_audit_rules
+      changed_when: false
+
+    - name: "Auditd - assert critical audit rules are loaded"
+      ansible.builtin.assert:
+        that:
+          - "'/etc/passwd' in test_audit_rules.stdout"
+          - "'/etc/shadow' in test_audit_rules.stdout"
+          - "'/etc/sudoers' in test_audit_rules.stdout"
+          - >-
+            '/etc/ssh/sshd_config'
+            in test_audit_rules.stdout
+          - >-
+            '/var/run/docker.sock'
+            in test_audit_rules.stdout
+        fail_msg: "Critical audit rules are not loaded."
+
+    - name: "Auditd - check immutable flag"
+      ansible.builtin.command:
+        cmd: auditctl -s
+      register: test_audit_status
+      changed_when: false
+
+    - name: "Auditd - assert rules are immutable"
+      ansible.builtin.assert:
+        that:
+          - "'enabled 2' in test_audit_status.stdout"
+        fail_msg: >-
+          Audit rules are not immutable (enabled 2).
+
+    # shared memory
+    - name: "Shm - check mount options"
+      ansible.builtin.command:
+        cmd: findmnt -n -o OPTIONS /dev/shm
+      register: test_shm_mount
+      changed_when: false
+
+    - name: "Shm - assert hardened mount options"
+      ansible.builtin.assert:
+        that:
+          - "'noexec' in test_shm_mount.stdout"
+          - "'nosuid' in test_shm_mount.stdout"
+          - "'nodev' in test_shm_mount.stdout"
+        fail_msg: >-
+          /dev/shm is not hardened with
+          noexec,nosuid,nodev.
+
+    # /proc hidepid
+    - name: "Proc - check mount options"
+      ansible.builtin.command:
+        cmd: findmnt -n -o OPTIONS /proc
+      register: test_proc_mount
+      changed_when: false
+
+    - name: "Proc - assert hidepid is set"
+      ansible.builtin.assert:
+        that:
+          - "'hidepid=2' in test_proc_mount.stdout"
+        fail_msg: "/proc is not mounted with hidepid=2."
+
+    # unattended-upgrades
+    - name: "Upgrades - assert package is installed"
+      ansible.builtin.command:
+        cmd: dpkg -l unattended-upgrades
+      register: test_uu_installed
+      changed_when: false
+      failed_when: test_uu_installed.rc != 0
+
+    - name: "Upgrades - check auto-reboot setting"
+      ansible.builtin.command:
+        cmd: >-
+          grep -c 'Automatic-Reboot.*true'
+          /etc/apt/apt.conf.d/50unattended-upgrades
+      changed_when: false
+      failed_when: false
+      register: test_auto_reboot
+
+    - name: "Upgrades - assert auto-reboot is disabled"
+      ansible.builtin.assert:
+        that:
+          - "test_auto_reboot.stdout | trim == '0'"
+        fail_msg: >-
+          Automatic reboot is enabled --
+          this will cause unplanned downtime.
+
+    # SSH port listening
+    - name: Verify SSH port is listening
+      ansible.builtin.wait_for:
+        port: "{{ ssh_port }}"
+        host: 0.0.0.0
+        timeout: 5
+
+    # ── Privilege separation verification ─────────────────────────
+    - name: "Privesc - check no sudoers files for service users"
+      ansible.builtin.stat:
+        path: "/etc/sudoers.d/{{ item.name }}"
+      register: test_service_sudoers
+      loop: "{{ service_users }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: "Privesc - assert no service user sudoers files"
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists
+        fail_msg: >-
+          Service user {{ item.item.name }}
+          has a sudoers file.
+      loop: "{{ test_service_sudoers.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    - name: "Privesc - check docker group membership"
+      ansible.builtin.command:
+        cmd: getent group docker
+      changed_when: false
+      failed_when: false
+      register: test_docker_group
+
+    - name: "Privesc - assert service users not in docker group"
+      ansible.builtin.assert:
+        that:
+          - "item.name not in test_docker_group.stdout"
+        fail_msg: >-
+          Service user {{ item.name }} is in docker group --
+          root-equivalent access.
+      loop: "{{ service_users }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: "Privesc - check service user shells"
+      ansible.builtin.command:
+        cmd: "getent passwd {{ item.name }}"
+      changed_when: false
+      register: test_service_shells
+      loop: "{{ service_users }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: "Privesc - assert nologin shell"
+      ansible.builtin.assert:
+        that:
+          - >-
+            '/usr/sbin/nologin' in item.stdout
+            or '/bin/false' in item.stdout
+        fail_msg: >-
+          Service user {{ item.item.name }}
+          has a login shell.
+      loop: "{{ test_service_shells.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    - name: All system tests passed
+      ansible.builtin.debug:
+        msg: "All system layer assertions passed."

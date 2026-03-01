@@ -1,0 +1,5 @@
+---
+dependencies:
+  - role: common
+  - role: users
+allow_duplicates: false

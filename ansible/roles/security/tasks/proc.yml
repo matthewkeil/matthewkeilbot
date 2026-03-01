@@ -1,0 +1,8 @@
+---
+- name: Mount /proc with hidepid=2
+  ansible.posix.mount:
+    path: /proc
+    src: proc
+    fstype: proc
+    opts: defaults,hidepid=2
+    state: mounted

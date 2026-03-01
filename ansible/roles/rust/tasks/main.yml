@@ -1,0 +1,94 @@
+---
+# 1. Create Rust directories
+- name: Create Rust directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ rust_rustup_home }}"
+    - "{{ rust_cargo_home }}"
+
+# 2. Bootstrap rustup
+- name: Check if rustup is installed
+  ansible.builtin.stat:
+    path: "{{ rust_cargo_home }}/bin/rustup"
+  register: rust_rustup_binary
+
+- name: Assert rustup checksum is provided
+  ansible.builtin.assert:
+    that:
+      - rust_rustup_checksum | length > 0
+    fail_msg: >-
+      rust_rustup_checksum must be set to the SHA256 checksum for
+      rustup-init {{ rust_rustup_version }} (x86_64-unknown-linux-gnu).
+      Get it from https://static.rust-lang.org/rustup/archive/{{ rust_rustup_version }}/
+
+- name: Bootstrap rustup
+  when: not rust_rustup_binary.stat.exists
+  block:
+    - name: Download rustup-init
+      ansible.builtin.get_url:
+        url: >-
+          https://static.rust-lang.org/rustup/archive/{{ rust_rustup_version }}/x86_64-unknown-linux-gnu/rustup-init
+        dest: /tmp/rustup-init
+        checksum: "sha256:{{ rust_rustup_checksum }}"
+        mode: "0755"
+
+    - name: Run rustup-init
+      ansible.builtin.command:
+        cmd: >-
+          /tmp/rustup-init --no-modify-path
+          --default-toolchain {{ rust_toolchain }} -y
+      environment:
+        RUSTUP_HOME: "{{ rust_rustup_home }}"
+        CARGO_HOME: "{{ rust_cargo_home }}"
+      changed_when: true
+
+    - name: Remove rustup-init installer
+      ansible.builtin.file:
+        path: /tmp/rustup-init
+        state: absent
+
+# 3. Update toolchain
+- name: Update Rust toolchain
+  ansible.builtin.command:
+    cmd: "{{ rust_cargo_home }}/bin/rustup update {{ rust_toolchain }}"
+  environment:
+    RUSTUP_HOME: "{{ rust_rustup_home }}"
+    CARGO_HOME: "{{ rust_cargo_home }}"
+  register: rust_rustup_update_result
+  changed_when: "'updated' in rust_rustup_update_result.stdout or 'installed' in rust_rustup_update_result.stdout"
+
+# 4. Create symlinks
+- name: Create Rust symlinks
+  ansible.builtin.file:
+    src: "{{ rust_cargo_home }}/bin/{{ item }}"
+    dest: "{{ rust_symlink_dir }}/{{ item }}"
+    state: link
+    force: true
+  loop: "{{ rust_symlinks }}"
+
+# 5. Profile script
+- name: Deploy Rust profile script
+  ansible.builtin.copy:
+    dest: /etc/profile.d/rust.sh
+    content: |
+      export RUSTUP_HOME={{ rust_rustup_home }}
+      export CARGO_HOME={{ rust_cargo_home }}
+      export PATH="${CARGO_HOME}/bin:${PATH}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Verify Rust installation
+  ansible.builtin.command:
+    cmd: "{{ rust_cargo_home }}/bin/rustc --version"
+  register: rust_rustc_verified
+  changed_when: false
+
+- name: Display verified Rust version
+  ansible.builtin.debug:
+    msg: "Rust {{ rust_rustc_verified.stdout }} installed at {{ rust_cargo_home }}"

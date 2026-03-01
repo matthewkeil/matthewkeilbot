@@ -1,0 +1,49 @@
+---
+- name: Check if OpenClaw is installed
+  ansible.builtin.command:
+    cmd: openclaw --version
+  register: openclaw_current_version
+  failed_when: false
+  changed_when: false
+  environment:
+    N_PREFIX: /usr/local
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+
+- name: Install OpenClaw via npm
+  ansible.builtin.command:
+    cmd: "npm install -g openclaw@{{ openclaw_version }}"
+  environment:
+    N_PREFIX: /usr/local
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  register: openclaw_install_result
+  changed_when: "'added' in openclaw_install_result.stdout or 'updated' in openclaw_install_result.stdout"
+  when: >-
+    openclaw_current_version.rc != 0 or
+    (openclaw_version != 'latest' and openclaw_version not in openclaw_current_version.stdout)
+  notify: Restart openclaw
+
+- name: Update OpenClaw to latest
+  ansible.builtin.command:
+    cmd: npm update -g openclaw
+  environment:
+    N_PREFIX: /usr/local
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  register: openclaw_update_result
+  changed_when: "'updated' in openclaw_update_result.stdout or 'added' in openclaw_update_result.stdout"
+  when:
+    - openclaw_version == 'latest'
+    - openclaw_current_version.rc == 0
+  notify: Restart openclaw
+
+- name: Verify OpenClaw installation
+  ansible.builtin.command:
+    cmd: openclaw --version
+  environment:
+    N_PREFIX: /usr/local
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  register: openclaw_verified
+  changed_when: false
+
+- name: Display OpenClaw version
+  ansible.builtin.debug:
+    msg: "OpenClaw {{ openclaw_verified.stdout }} installed"

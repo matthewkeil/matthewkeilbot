@@ -1,0 +1,77 @@
+---
+# 1. Check current versions
+- name: Check current Node.js version
+  ansible.builtin.command:
+    cmd: node --version
+  register: node_current_version
+  failed_when: false
+  changed_when: false
+
+- name: Check current n version
+  ansible.builtin.command:
+    cmd: "{{ node_n_install_dir }}/bin/n --version"
+  register: node_n_current_version
+  failed_when: false
+  changed_when: false
+
+# 2. Assert checksum
+- name: Assert n checksum is provided
+  ansible.builtin.assert:
+    that:
+      - node_n_checksum | length > 0
+    fail_msg: >-
+      node_n_checksum must be set to the SHA256 checksum for n {{ node_n_version }}.
+      Get it from the n GitHub releases page.
+
+# 3. Install n version manager
+- name: Download n binary
+  ansible.builtin.get_url:
+    url: "https://github.com/tj/n/releases/download/{{ node_n_version }}/n"
+    dest: /tmp/n
+    checksum: "sha256:{{ node_n_checksum }}"
+    mode: "0755"
+  when: node_n_current_version.rc != 0 or node_n_version not in node_n_current_version.stdout
+
+- name: Install n binary
+  ansible.builtin.copy:
+    src: /tmp/n
+    dest: "{{ node_n_install_dir }}/bin/n"
+    owner: root
+    group: root
+    mode: "0755"
+    remote_src: true
+  when: node_n_current_version.rc != 0 or node_n_version not in node_n_current_version.stdout
+
+- name: Remove temporary n download
+  ansible.builtin.file:
+    path: /tmp/n
+    state: absent
+
+# 4. Install Node.js
+- name: Install Node.js via n
+  ansible.builtin.command:
+    cmd: "{{ node_n_install_dir }}/bin/n {{ node_version }}"
+  environment:
+    N_PREFIX: "{{ node_n_install_dir }}"
+  register: node_n_install_result
+  changed_when: "'installed' in node_n_install_result.stdout"
+
+- name: Verify Node.js version
+  ansible.builtin.command:
+    cmd: node --version
+  register: node_verified_version
+  changed_when: false
+
+- name: Display installed Node.js version
+  ansible.builtin.debug:
+    msg: "Node.js {{ node_verified_version.stdout }} installed at {{ node_n_install_dir }}/bin/node"
+
+# 5. Profile script
+- name: Deploy Node.js profile script
+  ansible.builtin.copy:
+    dest: /etc/profile.d/node.sh
+    content: |
+      export N_PREFIX={{ node_n_install_dir }}
+    owner: root
+    group: root
+    mode: "0644"

@@ -1,0 +1,656 @@
+---
+- name: Services and application verification tests
+  hosts: vps
+  become: true
+  gather_facts: true
+
+  tasks:
+    # ── Docker (tags: services) ───────────────────────────────────
+    - name: Check Docker service state
+      ansible.builtin.systemd:
+        name: docker
+      register: test_docker
+      tags:
+        - services
+        - all
+
+    - name: Assert Docker is running
+      ansible.builtin.assert:
+        that:
+          - test_docker.status.ActiveState == 'active'
+        fail_msg: "Docker is not active."
+      tags:
+        - services
+        - all
+
+    - name: Check containerd service state
+      ansible.builtin.systemd:
+        name: containerd
+      register: test_containerd
+      tags:
+        - services
+        - all
+
+    - name: Assert containerd is running
+      ansible.builtin.assert:
+        that:
+          - test_containerd.status.ActiveState == 'active'
+        fail_msg: "containerd is not active."
+      tags:
+        - services
+        - all
+
+    - name: Check Docker socket exists
+      ansible.builtin.stat:
+        path: /var/run/docker.sock
+      register: test_docker_sock
+      tags:
+        - services
+        - all
+
+    - name: Assert Docker socket exists
+      ansible.builtin.assert:
+        that:
+          - test_docker_sock.stat.exists
+        fail_msg: "/var/run/docker.sock does not exist."
+      tags:
+        - services
+        - all
+
+    - name: Check devops Docker group membership
+      ansible.builtin.command:
+        cmd: groups devops
+      register: test_devops_docker
+      changed_when: false
+      tags:
+        - services
+        - all
+
+    - name: Assert devops is in docker group
+      ansible.builtin.assert:
+        that:
+          - "'docker' in test_devops_docker.stdout"
+        fail_msg: "User 'devops' is not in the docker group."
+      tags:
+        - services
+        - all
+
+    - name: Check matthewkeilbot Docker group membership
+      ansible.builtin.command:
+        cmd: groups matthewkeilbot
+      register: test_bot_docker
+      changed_when: false
+      tags:
+        - services
+        - all
+
+    - name: Assert matthewkeilbot is NOT in docker group
+      ansible.builtin.assert:
+        that:
+          - "'docker' not in test_bot_docker.stdout"
+        fail_msg: >-
+          Service user 'matthewkeilbot' should not be
+          in the docker group.
+      tags:
+        - services
+        - all
+
+    - name: Run docker info
+      ansible.builtin.command:
+        cmd: docker info
+      register: test_docker_info
+      changed_when: false
+      tags:
+        - services
+        - all
+
+    - name: Assert docker info succeeds
+      ansible.builtin.assert:
+        that:
+          - test_docker_info.rc == 0
+        fail_msg: "'docker info' failed."
+      tags:
+        - services
+        - all
+
+    # ── Nginx (tags: services) ────────────────────────────────────
+    - name: Check Nginx service state
+      ansible.builtin.systemd:
+        name: nginx
+      register: test_nginx
+      tags:
+        - services
+        - all
+
+    - name: Assert Nginx is running
+      ansible.builtin.assert:
+        that:
+          - test_nginx.status.ActiveState == 'active'
+        fail_msg: "Nginx is not active."
+      tags:
+        - services
+        - all
+
+    - name: Verify Nginx is listening on port 80
+      ansible.builtin.wait_for:
+        port: 80
+        timeout: 5
+      tags:
+        - services
+        - all
+
+    - name: Test Nginx configuration
+      ansible.builtin.command:
+        cmd: nginx -t
+      register: test_nginx_config
+      changed_when: false
+      tags:
+        - services
+        - all
+
+    - name: Assert Nginx configuration is valid
+      ansible.builtin.assert:
+        that:
+          - test_nginx_config.rc == 0
+        fail_msg: "'nginx -t' failed."
+      tags:
+        - services
+        - all
+
+    - name: Check default site is removed
+      ansible.builtin.stat:
+        path: /etc/nginx/sites-enabled/default
+      register: test_nginx_default
+      tags:
+        - services
+        - all
+
+    - name: Assert default site is removed
+      ansible.builtin.assert:
+        that:
+          - not test_nginx_default.stat.exists
+        fail_msg: >-
+          /etc/nginx/sites-enabled/default should not exist.
+      tags:
+        - services
+        - all
+
+    - name: Check catchall site is enabled
+      ansible.builtin.stat:
+        path: /etc/nginx/sites-enabled/00-default-catchall.conf
+      register: test_nginx_catchall
+      tags:
+        - services
+        - all
+
+    - name: Assert catchall site is enabled
+      ansible.builtin.assert:
+        that:
+          - test_nginx_catchall.stat.exists
+        fail_msg: >-
+          /etc/nginx/sites-enabled/00-default-catchall.conf
+          does not exist.
+      tags:
+        - services
+        - all
+
+    # ── Tailscale (tags: services) ────────────────────────────────
+    - name: Check tailscaled service state
+      ansible.builtin.systemd:
+        name: tailscaled
+      register: test_tailscaled
+      tags:
+        - services
+        - all
+
+    - name: Assert tailscaled is running
+      ansible.builtin.assert:
+        that:
+          - test_tailscaled.status.ActiveState == 'active'
+        fail_msg: "tailscaled is not active."
+      tags:
+        - services
+        - all
+
+    - name: Check tailscale0 interface exists
+      ansible.builtin.stat:
+        path: /sys/class/net/tailscale0
+      register: test_tailscale_iface
+      tags:
+        - services
+        - all
+
+    - name: Assert tailscale0 interface exists
+      ansible.builtin.assert:
+        that:
+          - test_tailscale_iface.stat.exists
+        fail_msg: "tailscale0 interface does not exist."
+      tags:
+        - services
+        - all
+
+    - name: Get Tailscale status
+      ansible.builtin.command:
+        cmd: tailscale status --json
+      register: test_tailscale_status
+      changed_when: false
+      tags:
+        - services
+        - all
+
+    - name: Assert Tailscale backend is running
+      ansible.builtin.assert:
+        that:
+          - >-
+            (test_tailscale_status.stdout | from_json).BackendState
+            == 'Running'
+        fail_msg: "Tailscale BackendState is not 'Running'."
+      tags:
+        - services
+        - all
+
+    # ── Monitoring (tags: services) ───────────────────────────────
+    - name: Check node_exporter service state
+      ansible.builtin.systemd:
+        name: node_exporter
+      register: test_node_exporter
+      tags:
+        - services
+        - all
+
+    - name: Assert node_exporter is running
+      ansible.builtin.assert:
+        that:
+          - test_node_exporter.status.ActiveState == 'active'
+        fail_msg: "node_exporter is not active."
+      tags:
+        - services
+        - all
+
+    - name: Verify node_exporter is listening on port 9100
+      ansible.builtin.wait_for:
+        port: 9100
+        host: 127.0.0.1
+        timeout: 5
+      tags:
+        - services
+        - all
+
+    - name: Fetch node_exporter metrics endpoint
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9100/metrics
+        status_code:
+          - 200
+      register: test_node_exporter_metrics
+      tags:
+        - services
+        - all
+
+    - name: Assert node_exporter metrics are accessible
+      ansible.builtin.assert:
+        that:
+          - test_node_exporter_metrics.status == 200
+        fail_msg: "node_exporter /metrics did not return 200."
+      tags:
+        - services
+        - all
+
+    - name: Check alert-check.sh exists
+      ansible.builtin.stat:
+        path: /opt/monitoring/alert-check.sh
+      register: test_alert_script
+      tags:
+        - services
+        - all
+
+    - name: Assert alert-check.sh exists with correct mode
+      ansible.builtin.assert:
+        that:
+          - test_alert_script.stat.exists
+          - test_alert_script.stat.mode == '0750'
+        fail_msg: >-
+          /opt/monitoring/alert-check.sh does not exist
+          or has wrong permissions.
+      tags:
+        - services
+        - all
+
+    - name: Check crontab for alert-check.sh
+      ansible.builtin.command:
+        cmd: crontab -l
+      register: test_crontab
+      changed_when: false
+      tags:
+        - services
+        - all
+
+    - name: Assert alert-check.sh is in crontab
+      ansible.builtin.assert:
+        that:
+          - "'alert-check.sh' in test_crontab.stdout"
+        fail_msg: "alert-check.sh not found in crontab."
+      tags:
+        - services
+        - all
+
+    # ── Toolchain (tags: toolchain) ───────────────────────────────
+    - name: Check Node.js is installed
+      ansible.builtin.command:
+        cmd: node --version
+      environment:
+        N_PREFIX: /usr/local
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+      register: test_node
+      changed_when: false
+      tags:
+        - toolchain
+        - all
+
+    - name: Assert Node.js is available
+      ansible.builtin.assert:
+        that:
+          - test_node.rc == 0
+        fail_msg: "Node.js is not installed or not in PATH."
+      tags:
+        - toolchain
+        - all
+
+    - name: Check npm is installed
+      ansible.builtin.command:
+        cmd: npm --version
+      environment:
+        N_PREFIX: /usr/local
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+      register: test_npm
+      changed_when: false
+      tags:
+        - toolchain
+        - all
+
+    - name: Assert npm is available
+      ansible.builtin.assert:
+        that:
+          - test_npm.rc == 0
+        fail_msg: "npm is not installed or not in PATH."
+      tags:
+        - toolchain
+        - all
+
+    - name: Check Python3 is installed
+      ansible.builtin.command:
+        cmd: /usr/local/bin/python3 --version
+      register: test_python
+      changed_when: false
+      tags:
+        - toolchain
+        - all
+
+    - name: Assert Python3 is available
+      ansible.builtin.assert:
+        that:
+          - test_python.rc == 0
+        fail_msg: "Python3 is not installed at /usr/local/bin/python3."
+      tags:
+        - toolchain
+        - all
+
+    - name: Check pip3 is installed
+      ansible.builtin.command:
+        cmd: /usr/local/bin/pip3 --version
+      register: test_pip
+      changed_when: false
+      tags:
+        - toolchain
+        - all
+
+    - name: Assert pip3 is available
+      ansible.builtin.assert:
+        that:
+          - test_pip.rc == 0
+        fail_msg: "pip3 is not installed at /usr/local/bin/pip3."
+      tags:
+        - toolchain
+        - all
+
+    - name: Check Rust compiler is installed
+      ansible.builtin.command:
+        cmd: /opt/rust/cargo/bin/rustc --version
+      register: test_rustc
+      changed_when: false
+      tags:
+        - toolchain
+        - all
+
+    - name: Assert rustc is available
+      ansible.builtin.assert:
+        that:
+          - test_rustc.rc == 0
+        fail_msg: >-
+          rustc is not installed at
+          /opt/rust/cargo/bin/rustc.
+      tags:
+        - toolchain
+        - all
+
+    - name: Check Cargo is installed
+      ansible.builtin.command:
+        cmd: /opt/rust/cargo/bin/cargo --version
+      register: test_cargo
+      changed_when: false
+      tags:
+        - toolchain
+        - all
+
+    - name: Assert cargo is available
+      ansible.builtin.assert:
+        that:
+          - test_cargo.rc == 0
+        fail_msg: >-
+          cargo is not installed at
+          /opt/rust/cargo/bin/cargo.
+      tags:
+        - toolchain
+        - all
+
+    - name: Check Zig is installed
+      ansible.builtin.command:
+        cmd: /usr/local/bin/zig version
+      register: test_zig
+      changed_when: false
+      tags:
+        - toolchain
+        - all
+
+    - name: Assert Zig is available
+      ansible.builtin.assert:
+        that:
+          - test_zig.rc == 0
+        fail_msg: "Zig is not installed at /usr/local/bin/zig."
+      tags:
+        - toolchain
+        - all
+
+    - name: Check pyenv is installed
+      ansible.builtin.command:
+        cmd: /opt/pyenv/bin/pyenv --version
+      register: test_pyenv
+      changed_when: false
+      tags:
+        - toolchain
+        - all
+
+    - name: Assert pyenv is available
+      ansible.builtin.assert:
+        that:
+          - test_pyenv.rc == 0
+        fail_msg: "pyenv is not installed at /opt/pyenv/bin/pyenv."
+      tags:
+        - toolchain
+        - all
+
+    # ── OpenClaw (tags: application) ──────────────────────────────
+    - name: Check openclaw is installed
+      ansible.builtin.command:
+        cmd: openclaw --version
+      environment:
+        N_PREFIX: /usr/local
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+      register: test_openclaw_version
+      changed_when: false
+      tags:
+        - application
+        - all
+
+    - name: Assert openclaw is available
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_version.rc == 0
+        fail_msg: "openclaw is not installed or not in PATH."
+      tags:
+        - application
+        - all
+
+    - name: Check OpenClaw service state
+      ansible.builtin.systemd:
+        name: openclaw@matthewkeilbot
+      register: test_openclaw_service
+      tags:
+        - application
+        - all
+
+    - name: Assert OpenClaw service is running
+      ansible.builtin.assert:
+        that:
+          - >-
+            test_openclaw_service.status.ActiveState
+            == 'active'
+        fail_msg: "openclaw@matthewkeilbot is not active."
+      tags:
+        - application
+        - all
+
+    - name: Assert OpenClaw service is enabled
+      ansible.builtin.assert:
+        that:
+          - >-
+            test_openclaw_service.status.UnitFileState
+            == 'enabled'
+        fail_msg: "openclaw@matthewkeilbot is not enabled."
+      tags:
+        - application
+        - all
+
+    - name: Check OpenClaw config file
+      ansible.builtin.stat:
+        path: /home/matthewkeilbot/.openclaw/config.json5
+      register: test_openclaw_config
+      tags:
+        - application
+        - all
+
+    - name: Assert OpenClaw config file is correct
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_config.stat.exists
+          - test_openclaw_config.stat.mode == '0600'
+          - >-
+            test_openclaw_config.stat.pw_name
+            == 'matthewkeilbot'
+        fail_msg: >-
+          config.json5 does not exist or has wrong
+          permissions/ownership.
+      tags:
+        - application
+        - all
+
+    - name: Check OpenClaw env file
+      ansible.builtin.stat:
+        path: /home/matthewkeilbot/.openclaw/env
+      register: test_openclaw_env
+      tags:
+        - application
+        - all
+
+    - name: Assert OpenClaw env file is correct
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_env.stat.exists
+          - test_openclaw_env.stat.mode == '0600'
+        fail_msg: >-
+          env file does not exist or has wrong permissions.
+      tags:
+        - application
+        - all
+
+    - name: Check OpenClaw gateway token file
+      ansible.builtin.stat:
+        path: /home/matthewkeilbot/.openclaw/gateway-token
+      register: test_openclaw_token
+      tags:
+        - application
+        - all
+
+    - name: Assert OpenClaw gateway token file is correct
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_token.stat.exists
+          - test_openclaw_token.stat.mode == '0600'
+        fail_msg: >-
+          gateway-token does not exist or has wrong
+          permissions.
+      tags:
+        - application
+        - all
+
+    - name: Check OpenClaw HTTP endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ openclaw_port }}/"
+        status_code:
+          - 200
+          - 302
+      register: test_openclaw_http
+      tags:
+        - application
+        - all
+
+    - name: Check OpenClaw is bound to localhost
+      ansible.builtin.command:
+        cmd: "ss -tlnp"
+      register: test_openclaw_ss
+      changed_when: false
+      tags:
+        - application
+        - all
+
+    - name: Assert OpenClaw is listening on localhost
+      ansible.builtin.assert:
+        that:
+          - "'127.0.0.1' in test_openclaw_ss.stdout"
+        fail_msg: >-
+          OpenClaw does not appear to be bound to
+          127.0.0.1 on port {{ openclaw_port }}.
+      tags:
+        - application
+        - all
+
+    - name: Assert NoNewPrivileges is enabled
+      ansible.builtin.assert:
+        that:
+          - >-
+            test_openclaw_service.status.NoNewPrivileges
+            == 'yes'
+        fail_msg: >-
+          NoNewPrivileges is not set for
+          openclaw@matthewkeilbot.
+      tags:
+        - application
+        - all
+
+    - name: All services and application tests passed
+      ansible.builtin.debug:
+        msg: "All 36 services and application assertions passed."
+      tags:
+        - services
+        - toolchain
+        - application
+        - all

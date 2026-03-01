@@ -1,0 +1,60 @@
+# Managed by Ansible — do not edit manually
+# {{ ansible_managed }}
+
+[Unit]
+Description=OpenClaw Bot Gateway (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ openclaw_user }}
+WorkingDirectory={{ openclaw_home }}
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PYENV_ROOT=/opt/pyenv
+Environment=CARGO_HOME=/opt/rust/cargo
+Environment=RUSTUP_HOME=/opt/rust/rustup
+Environment=PATH=/usr/local/bin:/opt/pyenv/bin:/opt/rust/cargo/bin:%h/.local/bin:/usr/bin:/bin
+EnvironmentFile={{ openclaw_home }}/.openclaw/env
+
+# Execution
+ExecStart=/usr/local/bin/openclaw gateway --port ${OPENCLAW_PORT}
+
+# Restart policy
+Restart=on-failure
+RestartSec={{ openclaw_restart_sec }}
+StartLimitIntervalSec={{ openclaw_start_limit_interval }}
+StartLimitBurst={{ openclaw_start_limit_burst }}
+
+# Resource limits
+LimitNOFILE={{ openclaw_max_open_files }}
+LimitNPROC={{ openclaw_max_processes }}
+
+# Logging
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=1000
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=tmpfs
+BindPaths={{ openclaw_home }}
+ReadWritePaths={{ openclaw_home }}
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictNamespaces=true
+CapabilityBoundingSet=
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target

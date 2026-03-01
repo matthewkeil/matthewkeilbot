@@ -1,0 +1,82 @@
+---
+# Feature toggles
+security_ufw_enabled: true
+security_ssh_enabled: true
+security_fail2ban_enabled: true
+security_sysctl_enabled: true
+security_auditd_enabled: true
+security_shared_memory_enabled: true
+security_proc_enabled: true
+security_unattended_upgrades_enabled: true
+
+# SSH
+security_ssh_port: "{{ ssh_port }}"
+security_ssh_permit_root_login: "no"
+security_ssh_password_authentication: "no"
+security_ssh_max_auth_tries: 3
+security_ssh_login_grace_time: 30
+security_ssh_x11_forwarding: "no"
+security_ssh_allow_users:
+  - "{{ devops_user | default('devops') }}"
+security_ssh_deny_users: "{{ service_users | default([]) | map(attribute='name') | list }}"
+
+# UFW
+security_ufw_default_incoming: deny
+security_ufw_default_outgoing: allow
+security_ufw_rules:
+  - rule: limit
+    port: "{{ ssh_port }}"
+    proto: tcp
+    comment: "SSH rate limited"
+  - rule: allow
+    port: "80"
+    proto: tcp
+    comment: "HTTP"
+  - rule: allow
+    port: "443"
+    proto: tcp
+    comment: "HTTPS"
+
+# fail2ban
+security_fail2ban_bantime: 3600
+security_fail2ban_findtime: 600
+security_fail2ban_maxretry: 3
+security_fail2ban_ssh_enabled: true
+security_fail2ban_nginx_enabled: false
+
+# sysctl
+security_sysctl_params:
+  net.ipv6.conf.all.forwarding: 0
+  net.ipv4.icmp_echo_ignore_broadcasts: 1
+  net.ipv4.icmp_ignore_bogus_error_responses: 1
+  net.ipv4.conf.all.accept_redirects: 0
+  net.ipv4.conf.default.accept_redirects: 0
+  net.ipv6.conf.all.accept_redirects: 0
+  net.ipv6.conf.default.accept_redirects: 0
+  net.ipv4.conf.all.send_redirects: 0
+  net.ipv4.conf.default.send_redirects: 0
+  net.ipv4.conf.all.accept_source_route: 0
+  net.ipv4.conf.default.accept_source_route: 0
+  net.ipv6.conf.all.accept_source_route: 0
+  net.ipv6.conf.default.accept_source_route: 0
+  net.ipv4.tcp_syncookies: 1
+  net.ipv4.tcp_max_syn_backlog: 2048
+  net.ipv4.tcp_synack_retries: 2
+  net.ipv4.conf.all.rp_filter: 1
+  net.ipv4.conf.default.rp_filter: 1
+  net.ipv4.conf.all.log_martians: 1
+  net.ipv4.conf.default.log_martians: 1
+  net.ipv4.tcp_rfc1337: 1
+  kernel.randomize_va_space: 2
+  kernel.kptr_restrict: 2
+  kernel.dmesg_restrict: 1
+
+# auditd
+security_auditd_max_log_file: 50
+security_auditd_num_logs: 10
+security_auditd_max_log_file_action: rotate
+
+# unattended-upgrades
+security_unattended_upgrades_origins:
+  - "${distro_id}:${distro_codename}-security"
+security_unattended_upgrades_auto_reboot: false

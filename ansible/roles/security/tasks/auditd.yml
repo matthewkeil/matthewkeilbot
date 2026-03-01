@@ -1,0 +1,46 @@
+---
+- name: Install auditd packages
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - audispd-plugins
+    state: present
+
+- name: Configure auditd max_log_file
+  community.general.ini_file:
+    path: /etc/audit/auditd.conf
+    section: null
+    option: max_log_file
+    value: "{{ security_auditd_max_log_file }}"
+    mode: "0640"
+    no_extra_spaces: true
+  notify: Restart auditd
+
+- name: Configure auditd num_logs
+  community.general.ini_file:
+    path: /etc/audit/auditd.conf
+    section: null
+    option: num_logs
+    value: "{{ security_auditd_num_logs }}"
+    mode: "0640"
+    no_extra_spaces: true
+  notify: Restart auditd
+
+- name: Configure auditd max_log_file_action
+  community.general.ini_file:
+    path: /etc/audit/auditd.conf
+    section: null
+    option: max_log_file_action
+    value: "{{ security_auditd_max_log_file_action }}"
+    mode: "0640"
+    no_extra_spaces: true
+  notify: Restart auditd
+
+- name: Deploy audit rules
+  ansible.builtin.template:
+    src: audit-rules.j2
+    dest: /etc/audit/rules.d/hardening.rules
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart auditd

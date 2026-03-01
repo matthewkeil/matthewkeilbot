@@ -1,0 +1,41 @@
+---
+- name: Create service user groups
+  ansible.builtin.group:
+    name: "{{ item.name }}"
+    state: present
+  loop: "{{ users_service_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create service users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    group: "{{ item.name }}"
+    groups: []
+    append: false
+    home: "{{ item.home }}"
+    shell: "{{ users_service_shell }}"
+    system: false
+    create_home: true
+    state: present
+  loop: "{{ users_service_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Set service user home directory permissions
+  ansible.builtin.file:
+    path: "{{ item.home }}"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "{{ users_service_home_mode }}"
+  loop: "{{ users_service_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Ensure no sudoers file for service users
+  ansible.builtin.file:
+    path: "/etc/sudoers.d/{{ item.name }}"
+    state: absent
+  loop: "{{ users_service_accounts }}"
+  loop_control:
+    label: "{{ item.name }}"

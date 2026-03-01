@@ -1,0 +1,32 @@
+---
+- name: Full convergence
+  hosts: vps
+  become: true
+
+  pre_tasks:
+    - name: Assert devops SSH public key is configured
+      ansible.builtin.assert:
+        that:
+          - devops_ssh_public_key is defined
+          - devops_ssh_public_key | length > 0
+        fail_msg: >-
+          devops_ssh_public_key is not set. Run `make vault-edit` to configure
+          vault_devops_ssh_public_key with the SSH public key for the devops user.
+
+  roles:
+    # System layer
+    - common
+    - users
+    - security
+    # Services layer
+    - docker
+    - nginx
+    - tailscale
+    - monitoring
+    # Toolchain layer
+    - node
+    - python
+    - rust
+    - zig
+    # Application layer
+    - openclaw

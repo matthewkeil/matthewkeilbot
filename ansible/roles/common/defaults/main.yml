@@ -1,0 +1,24 @@
+---
+common_timezone: "{{ system_timezone | default('UTC') }}"
+common_locale: "{{ system_locale | default('en_US.UTF-8') }}"
+common_hostname: "{{ system_hostname | default(inventory_hostname) }}"
+
+common_packages:
+  - curl
+  - wget
+  - git
+  - jq
+  - tree
+  - htop
+  - unzip
+  - software-properties-common
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - acl
+  - net-tools
+  - iproute2
+  - lsof
+  - dnsutils
+  - rsync

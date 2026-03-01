@@ -1,0 +1,9 @@
+---
+# TODO: Implement rollback — stop OpenClaw service, optionally roll back npm version
+- name: Rollback OpenClaw (stub)
+  hosts: vps
+
+  tasks:
+    - name: OpenClaw rollback not yet implemented
+      ansible.builtin.debug:
+        msg: "OpenClaw rollback is not yet implemented. Manually stop the service and roll back npm version."

@@ -1,0 +1,32 @@
+---
+- name: Configure UFW firewall
+  ansible.builtin.include_tasks: ufw.yml
+  when: security_ufw_enabled
+
+- name: Configure SSH hardening
+  ansible.builtin.include_tasks: ssh.yml
+  when: security_ssh_enabled
+
+- name: Configure fail2ban
+  ansible.builtin.include_tasks: fail2ban.yml
+  when: security_fail2ban_enabled
+
+- name: Configure sysctl hardening
+  ansible.builtin.include_tasks: sysctl.yml
+  when: security_sysctl_enabled
+
+- name: Configure auditd
+  ansible.builtin.include_tasks: auditd.yml
+  when: security_auditd_enabled
+
+- name: Configure shared memory hardening
+  ansible.builtin.include_tasks: shared_memory.yml
+  when: security_shared_memory_enabled
+
+- name: Configure proc hardening
+  ansible.builtin.include_tasks: proc.yml
+  when: security_proc_enabled
+
+- name: Configure unattended upgrades
+  ansible.builtin.include_tasks: unattended_upgrades.yml
+  when: security_unattended_upgrades_enabled

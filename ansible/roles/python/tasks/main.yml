@@ -1,0 +1,149 @@
+---
+# 1. Install build dependencies
+- name: Install Python build dependencies
+  ansible.builtin.apt:
+    name: "{{ python_build_deps }}"
+    state: present
+
+# 2. Install pyenv
+- name: Assert pyenv commit SHA is provided
+  ansible.builtin.assert:
+    that:
+      - python_pyenv_commit_sha | length > 0
+    fail_msg: >-
+      python_pyenv_commit_sha must be set to the Git commit SHA for
+      pyenv {{ python_pyenv_version }}.
+      Get it with: git ls-remote https://github.com/pyenv/pyenv.git {{ python_pyenv_version }}
+
+- name: Check if pyenv is installed
+  ansible.builtin.stat:
+    path: "{{ python_pyenv_root }}/bin/pyenv"
+  register: python_pyenv_binary
+
+- name: Clone pyenv repository
+  ansible.builtin.git:
+    repo: https://github.com/pyenv/pyenv.git
+    dest: "{{ python_pyenv_root }}"
+    version: "{{ python_pyenv_version }}"
+    depth: 1
+    force: true
+  when: not python_pyenv_binary.stat.exists
+
+- name: Update existing pyenv installation
+  ansible.builtin.git:
+    repo: https://github.com/pyenv/pyenv.git
+    dest: "{{ python_pyenv_root }}"
+    version: "{{ python_pyenv_version }}"
+    force: true
+  when: python_pyenv_binary.stat.exists
+
+- name: Get pyenv commit hash
+  ansible.builtin.command:
+    cmd: git rev-parse HEAD
+    chdir: "{{ python_pyenv_root }}"
+  register: python_pyenv_commit
+  changed_when: false
+
+- name: Verify pyenv commit hash
+  ansible.builtin.assert:
+    that:
+      - python_pyenv_commit.stdout == python_pyenv_commit_sha
+    fail_msg: >-
+      pyenv commit hash mismatch. Expected {{ python_pyenv_commit_sha }},
+      got {{ python_pyenv_commit.stdout }}. The pyenv version tag may have been re-tagged.
+
+- name: Set pyenv directory ownership
+  ansible.builtin.file:
+    path: "{{ python_pyenv_root }}"
+    owner: root
+    group: root
+    recurse: true
+
+# 3. Install Python version
+- name: Query installed pyenv versions
+  ansible.builtin.command:
+    cmd: "{{ python_pyenv_root }}/bin/pyenv versions --bare"
+  register: python_pyenv_versions
+  changed_when: false
+  environment:
+    PYENV_ROOT: "{{ python_pyenv_root }}"
+
+- name: Compile and install Python
+  ansible.builtin.command:
+    cmd: "{{ python_pyenv_root }}/bin/pyenv install {{ python_version }}"
+  environment:
+    PYENV_ROOT: "{{ python_pyenv_root }}"
+  async: 1800
+  poll: 30
+  changed_when: true
+  register: python_compile_result
+  when: python_version not in python_pyenv_versions.stdout_lines
+
+- name: Verify Python compilation succeeded
+  ansible.builtin.assert:
+    that:
+      - python_compile_result.finished is defined
+      - python_compile_result.finished
+      - python_compile_result.rc == 0
+    fail_msg: >-
+      Python {{ python_version }} compilation failed or timed out.
+      Check build dependencies and consider a larger instance.
+  when: python_compile_result is not skipped
+
+- name: Set pyenv global Python version
+  ansible.builtin.command:
+    cmd: "{{ python_pyenv_root }}/bin/pyenv global {{ python_version }}"
+  environment:
+    PYENV_ROOT: "{{ python_pyenv_root }}"
+  changed_when: false
+
+# 4. Create symlinks
+- name: Create python3 symlink
+  ansible.builtin.file:
+    src: "{{ python_pyenv_root }}/versions/{{ python_version }}/bin/python3"
+    dest: "{{ python_symlink_dir }}/python3"
+    state: link
+    force: true
+
+- name: Create python symlink
+  ansible.builtin.file:
+    src: "{{ python_pyenv_root }}/versions/{{ python_version }}/bin/python3"
+    dest: "{{ python_symlink_dir }}/python"
+    state: link
+    force: true
+
+- name: Create pip3 symlink
+  ansible.builtin.file:
+    src: "{{ python_pyenv_root }}/versions/{{ python_version }}/bin/pip3"
+    dest: "{{ python_symlink_dir }}/pip3"
+    state: link
+    force: true
+
+- name: Create pip symlink
+  ansible.builtin.file:
+    src: "{{ python_pyenv_root }}/versions/{{ python_version }}/bin/pip3"
+    dest: "{{ python_symlink_dir }}/pip"
+    state: link
+    force: true
+
+# 5. Profile script
+- name: Deploy pyenv profile script
+  ansible.builtin.copy:
+    dest: /etc/profile.d/pyenv.sh
+    content: |
+      export PYENV_ROOT={{ python_pyenv_root }}
+      export PATH="${PYENV_ROOT}/bin:${PATH}"
+      eval "$(pyenv init -)"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Verify Python installation
+  ansible.builtin.command:
+    cmd: "{{ python_symlink_dir }}/python3 --version"
+  register: python_verified
+  changed_when: false
+
+- name: Display verified Python version
+  ansible.builtin.debug:
+    msg: "Python {{ python_verified.stdout }} installed via pyenv at {{ python_pyenv_root }}"

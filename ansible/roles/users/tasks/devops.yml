@@ -1,0 +1,48 @@
+---
+- name: Create devops group
+  ansible.builtin.group:
+    name: "{{ users_devops_name }}"
+    state: present
+
+- name: Create devops user
+  ansible.builtin.user:
+    name: "{{ users_devops_name }}"
+    group: "{{ users_devops_name }}"
+    groups: "{{ users_devops_groups }}"
+    home: "/home/{{ users_devops_name }}"
+    shell: "{{ users_devops_shell }}"
+    create_home: true
+    state: present
+
+- name: Set devops home directory permissions
+  ansible.builtin.file:
+    path: "/home/{{ users_devops_name }}"
+    owner: "{{ users_devops_name }}"
+    group: "{{ users_devops_name }}"
+    mode: "0700"
+
+- name: Validate SSH public key format
+  ansible.builtin.command:
+    cmd: ssh-keygen -l -f /dev/stdin
+    stdin: "{{ users_devops_ssh_public_key }}"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  no_log: true
+
+- name: Configure devops authorized_keys
+  ansible.posix.authorized_key:
+    user: "{{ users_devops_name }}"
+    key: "{{ users_devops_ssh_public_key }}"
+    exclusive: true
+    state: present
+  no_log: true
+
+- name: Configure devops passwordless sudo
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ users_devops_name }}"
+    content: "{{ users_devops_name }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"

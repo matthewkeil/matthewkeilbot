@@ -1,0 +1,8 @@
+---
+- name: Harden shared memory mount
+  ansible.posix.mount:
+    path: /dev/shm
+    src: tmpfs
+    fstype: tmpfs
+    opts: defaults,noexec,nosuid,nodev
+    state: mounted

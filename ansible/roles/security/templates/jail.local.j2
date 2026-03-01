@@ -1,0 +1,24 @@
+# Managed by Ansible — do not edit manually
+# {{ ansible_managed }}
+
+[DEFAULT]
+bantime = {{ security_fail2ban_bantime }}
+findtime = {{ security_fail2ban_findtime }}
+maxretry = {{ security_fail2ban_maxretry }}
+banaction = ufw
+
+{% if security_fail2ban_ssh_enabled %}
+[sshd]
+enabled = true
+port = {{ security_ssh_port }}
+logpath = /var/log/auth.log
+maxretry = {{ security_fail2ban_maxretry }}
+{% endif %}
+
+{% if security_fail2ban_nginx_enabled %}
+[nginx-http-auth]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/error.log
+maxretry = {{ security_fail2ban_maxretry }}
+{% endif %}

@@ -1,0 +1,32 @@
+---
+- name: Toolchain layer setup
+  hosts: vps
+  become: true
+
+  pre_tasks:
+    - name: Check free disk space on /opt
+      ansible.builtin.command:
+        cmd: df --output=avail -B1 /opt
+      register: opt_disk_space
+      changed_when: false
+
+    - name: Check free disk space on /usr/local
+      ansible.builtin.command:
+        cmd: df --output=avail -B1 /usr/local
+      register: usr_local_disk_space
+      changed_when: false
+
+    - name: Assert sufficient disk space for toolchain
+      ansible.builtin.assert:
+        that:
+          - opt_disk_space.stdout_lines[-1] | int >= 5368709120
+          - usr_local_disk_space.stdout_lines[-1] | int >= 5368709120
+        fail_msg: >-
+          Insufficient disk space for toolchain installation.
+          At least 5GB free is required on /opt and /usr/local.
+
+  roles:
+    - node
+    - python
+    - rust
+    - zig

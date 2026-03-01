@@ -1,0 +1,50 @@
+---
+# System
+system_timezone: "UTC"
+system_locale: "en_US.UTF-8"
+system_hostname: "matthewkeilhost"
+
+# SSH (vault_ssh_port is used by the security role to configure sshd, not for Ansible connections)
+ssh_port: "{{ vault_ssh_port }}"
+
+# Users
+devops_user: "devops"
+devops_ssh_public_key: "{{ vault_devops_ssh_public_key }}"
+
+# Service users
+service_users:
+  - name: "matthewkeilbot"
+    home: "/home/matthewkeilbot"
+
+# Tailscale
+# tailscale_auth_key: passed via CLI (-e tailscale_auth_key=...) for first-time setup only
+tailscale_serve_enabled: true
+
+# OpenClaw
+openclaw_version: "latest"
+openclaw_port: "{{ vault_openclaw_port }}"
+openclaw_bot_name: "matthewkeilbot"
+openclaw_user: "matthewkeilbot"
+openclaw_home: "/home/matthewkeilbot"
+openclaw_sandbox_mode: "container"
+openclaw_gateway_bind: "loopback"
+
+# Toolchain versions
+node_version: 24
+n_version: "v10.2.0"
+python3_version: "3.12.8"
+pyenv_version: "v2.4.22"
+zig_version: "0.14.1"
+
+# Checksums (required — roles will fail if empty; get from GitHub releases)
+monitoring_node_exporter_checksum: ""  # SHA256 for node_exporter tarball
+node_n_checksum: ""  # SHA256 for n binary
+zig_checksum: ""  # SHA256 for zig tarball
+rust_rustup_checksum: ""  # SHA256 for rustup-init binary
+python_pyenv_commit_sha: ""  # Git commit SHA for pyenv version tag
+
+# Monitoring
+monitoring_alert_method: "log"
+node_exporter_version: "1.7.0"
+monitoring_watched_services:
+  - "openclaw@matthewkeilbot"

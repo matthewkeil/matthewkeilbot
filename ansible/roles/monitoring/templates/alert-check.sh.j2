@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Managed by Ansible — do not edit manually
+# {{ ansible_managed }}
+set -euo pipefail
+
+alert() {
+    local level="$1"
+    local message="$2"
+    case "{{ monitoring_alert_method }}" in
+        log|*)
+            logger -t monitoring-alert "${level}: ${message}"
+            ;;
+    esac
+}
+
+# Disk check
+disk_percent=$(df / --output=pcent | tail -1 | tr -d ' %')
+if [ "${disk_percent}" -ge {{ monitoring_disk_crit_percent }} ]; then
+    alert "CRITICAL" "Disk usage at ${disk_percent}% (threshold: {{ monitoring_disk_crit_percent }}%)"
+elif [ "${disk_percent}" -ge {{ monitoring_disk_warn_percent }} ]; then
+    alert "WARNING" "Disk usage at ${disk_percent}% (threshold: {{ monitoring_disk_warn_percent }}%)"
+fi
+
+# Memory check
+memory_total=$(free | awk '/^Mem:/ {print $2}')
+memory_used=$(free | awk '/^Mem:/ {print $3}')
+memory_percent=$(( memory_used * 100 / memory_total ))
+if [ "${memory_percent}" -ge {{ monitoring_memory_warn_percent }} ]; then
+    alert "WARNING" "Memory usage at ${memory_percent}% (threshold: {{ monitoring_memory_warn_percent }}%)"
+fi
+
+# Service check
+{% for service in monitoring_watched_services %}
+if ! systemctl is-active --quiet "{{ service }}"; then
+    alert "CRITICAL" "Service {{ service }} is not active"
+fi
+{% endfor %}
+
+# Reboot check
+if [ -f /var/run/reboot-required ]; then
+    alert "WARNING" "Reboot required — pending security update. Run \`sudo reboot\` when convenient."
+fi

@@ -1,0 +1,20 @@
+---
+- name: Deploy OpenClaw systemd service unit
+  ansible.builtin.template:
+    src: openclaw@.service.j2
+    dest: /etc/systemd/system/openclaw@.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart openclaw
+
+- name: Flush handlers for systemd reload
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start OpenClaw service
+  ansible.builtin.systemd:
+    name: "openclaw@{{ openclaw_bot_name }}"
+    state: started
+    enabled: true

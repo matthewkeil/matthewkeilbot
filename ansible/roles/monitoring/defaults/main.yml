@@ -1,0 +1,11 @@
+---
+monitoring_node_exporter_version: "1.7.0"
+monitoring_node_exporter_listen: "127.0.0.1:9100"
+monitoring_node_exporter_user: node_exporter
+monitoring_disk_warn_percent: 80
+monitoring_disk_crit_percent: 90
+monitoring_memory_warn_percent: 85
+monitoring_alert_method: "log"
+monitoring_alert_cron_minute: "*/5"
+monitoring_node_exporter_checksum: ""
+monitoring_watched_services: []

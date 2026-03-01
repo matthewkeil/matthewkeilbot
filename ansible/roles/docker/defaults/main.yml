@@ -1,0 +1,12 @@
+---
+docker_edition: ce
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+docker_users:
+  - "{{ devops_user | default('devops') }}"
+docker_denied_users: "{{ service_users | default([]) | map(attribute='name') | list }}"
+docker_daemon_config: {}

@@ -1,0 +1,10 @@
+---
+- name: Services layer setup
+  hosts: vps
+  become: true
+
+  roles:
+    - docker
+    - nginx
+    - tailscale
+    - monitoring

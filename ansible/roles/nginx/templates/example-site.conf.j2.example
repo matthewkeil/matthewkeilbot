@@ -1,0 +1,32 @@
+# Example Nginx vhost configuration
+# {{ ansible_managed }}
+#
+# This file is documentation only — it is NOT loaded by nginx.
+# To create a new vhost:
+#   1. Copy this file to /etc/nginx/sites-available/your-site.conf
+#   2. Edit the server_name, proxy_pass, and other settings
+#   3. Create a symlink: ln -s /etc/nginx/sites-available/your-site.conf /etc/nginx/sites-enabled/
+#   4. Test: nginx -t
+#   5. Reload: systemctl reload nginx
+#
+# For Ansible-managed sites: create a role or playbook that templates
+# the vhost config and creates the symlink.
+
+# server {
+#     listen 80;
+#     listen [::]:80;
+#     server_name example.com;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:8080;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#
+#         # WebSocket support (uncomment if needed)
+#         # proxy_http_version 1.1;
+#         # proxy_set_header Upgrade $http_upgrade;
+#         # proxy_set_header Connection "upgrade";
+#     }
+# }

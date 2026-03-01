@@ -1,0 +1,10 @@
+---
+# Stub for future per-site nginx vhost deployments.
+# Each application needing a public nginx vhost will be wired here as it is added.
+- name: Update nginx sites (stub)
+  hosts: vps
+
+  tasks:
+    - name: Placeholder for future nginx site updates
+      ansible.builtin.debug:
+        msg: "No nginx site updates configured. This playbook is a stub for future use."

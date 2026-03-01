@@ -1,0 +1,13 @@
+# Managed by Ansible — do not edit manually
+# {{ ansible_managed }}
+#
+# Catch-all server block — silently drops unrecognized connections.
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name _;
+
+    return 444;
+}
