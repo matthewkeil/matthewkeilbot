@@ -14,7 +14,9 @@ roles/users/
 │   └── service_users.yml
 ├── defaults/
 │   └── main.yml
-└── handlers/
+├── handlers/
+│   └── main.yml
+└── meta/
     └── main.yml
 ```
 
@@ -40,6 +42,7 @@ roles/users/
 - Create group matching `users_devops_name`
 - Create user with primary group set to own group, supplementary groups from `users_devops_groups`, home at `/home/<name>`, shell from `users_devops_shell`
 - Set home directory permissions to `0700`, owned by the devops user
+- Test SSH connectivity with the vault-provided key by running a local check (verify the key format is valid using `ssh-keygen -l -f`) before deploying it. This prevents lockout from a malformed key.
 - Configure `authorized_keys` using `users_devops_ssh_public_key` with `exclusive: true` (removes any other keys)
 - Write `/etc/sudoers.d/<name>` granting passwordless `ALL=(ALL) NOPASSWD:ALL`, validated with `visudo -cf` before deployment, mode `0440`
 

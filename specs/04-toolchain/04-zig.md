@@ -10,7 +10,9 @@ Install Zig from an official checksummed tarball. Extracts to `/opt/zig-{version
 roles/zig/
 ├── tasks/
 │   └── main.yml
-└── defaults/
+├── defaults/
+│   └── main.yml
+└── meta/
     └── main.yml
 ```
 
@@ -22,6 +24,7 @@ roles/zig/
 | `zig_install_dir` | `/opt` | Parent directory where the versioned Zig directory is extracted |
 | `zig_symlink_dir` | `/usr/local/bin` | Directory where the `zig` symlink is created |
 | `zig_checksum` | `""` | SHA256 checksum for the Zig tarball; must be set in `group_vars` for production; role will fail if empty |
+| `zig_cleanup_old_versions` | `true` | Remove old Zig versions after successful upgrade |
 
 ### Architecture Mapping
 
@@ -36,7 +39,7 @@ The role uses `ansible_architecture` directly for the Zig download URL — no re
 
 ### 1. Check current version
 
-- Check the currently installed Zig version via `{{ zig_symlink_dir }}/zig version`; treat missing binary as not installed (do not fail)
+- Check the currently installed Zig version via `{{ zig_symlink_dir }}/zig version`; treat missing binary as not installed (do not fail) — use `changed_when: false` and `failed_when: false`
 
 ### 2. Set architecture fact
 
@@ -53,6 +56,10 @@ All three steps are conditional on the current version being absent or not match
 ### 4. Create symlink
 
 - Create a symlink at `{{ zig_symlink_dir }}/zig` pointing to the `zig` binary inside the versioned directory, with `force: true`
+
+### 4b. Remove old versions (conditional)
+
+- When `zig_cleanup_old_versions` is true and a new version was installed: find all `zig-linux-*` directories in `zig_install_dir` except the current version's directory, and remove them.
 
 ### 5. Clean up and verify
 
@@ -76,4 +83,4 @@ All three steps are conditional on the current version being absent or not match
 - Version check prevents re-downloading when correct version is installed
 - `creates` parameter prevents re-extracting
 - Symlink uses `force: true` to update on version changes
-- Old versions are NOT automatically removed (allows rollback by changing symlink)
+- Old versions are removed by default after successful upgrade (controlled by `zig_cleanup_old_versions`). Set to `false` to keep old versions for rollback.

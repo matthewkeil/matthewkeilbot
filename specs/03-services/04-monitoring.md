@@ -19,8 +19,10 @@ roles/monitoring/
 ├── templates/
 │   ├── node_exporter.service.j2
 │   └── alert-check.sh.j2
-└── files/
-    └── .gitkeep
+├── files/
+│   └── .gitkeep
+└── meta/
+    └── main.yml
 ```
 
 ## Defaults
@@ -35,13 +37,11 @@ roles/monitoring/
 | `monitoring_memory_warn_percent` | `85` | Memory warning threshold |
 | `monitoring_alert_method` | `monitoring_alert_method \| default('log')` | `log`, `telegram`, or `email` |
 | `monitoring_alert_cron_minute` | `*/5` | Cron schedule (every 5 minutes) |
+| `monitoring_node_exporter_checksum` | `""` | SHA256 checksum for node_exporter tarball; must be set in `group_vars` for production; role will fail if empty |
 | `monitoring_watched_services` | see below | Systemd services to monitor |
 
 Default watched services:
-- `openclaw@<openclaw_bot_name | default('matthewkeilbot')>`
-- `nginx`
-- `docker`
-- `tailscaled`
+- Default is an empty list `[]`. Each application role is responsible for adding its own service to the watched list by appending to `monitoring_watched_services` (e.g., the openclaw role adds `openclaw@matthewkeilbot`, the nginx role task ensures `nginx` is watched).
 
 ## Tasks
 
@@ -53,7 +53,9 @@ Default watched services:
 - Create `node_exporter` system user (no login shell, no home directory)
 - Check currently installed node_exporter version
 - Detect system architecture (amd64 for x86_64, arm64 otherwise)
+- Assert that `monitoring_node_exporter_checksum` is non-empty before downloading (fail with descriptive message if empty)
 - Download node_exporter tarball from GitHub releases only when version is missing or outdated
+  - Download with SHA256 checksum verification using `monitoring_node_exporter_checksum` variable
   - Source: `https://github.com/prometheus/node_exporter/releases/download/v<version>/node_exporter-<version>.linux-<arch>.tar.gz`
   - Destination: `/tmp/`
 - Extract tarball to `/tmp/`
@@ -86,6 +88,7 @@ Bash script run by cron to check system health. Key behaviors:
 - Disk check: reads `df /` percent used; emits critical alert at `monitoring_disk_crit_percent`, warning at `monitoring_disk_warn_percent`
 - Memory check: computes used/total percent from `free`; emits warning at `monitoring_memory_warn_percent`
 - Service check: iterates `monitoring_watched_services`; emits critical alert for each service that is not active per `systemctl is-active`
+- Reboot check: if `/var/run/reboot-required` exists, emit a warning alert: 'Reboot required — pending security update. Run `sudo reboot` when convenient.'
 
 ## Handlers
 
@@ -96,7 +99,7 @@ Bash script run by cron to check system health. Key behaviors:
 - **node_exporter binds to loopback**: By default, metrics are only accessible locally. To allow Tailscale access, set `monitoring_node_exporter_listen` to the Tailscale IP or `0.0.0.0:9100` (with UFW restricting access).
 - **Cron-based alerting**: Simpler than running Alertmanager. Suitable for a single host. Checks run every 5 minutes by default.
 - **Alert method extensible**: Currently only `log` (syslog). Adding Telegram or email requires adding a case to the `alert()` function in the template.
-- **Watched services list**: Automatically includes OpenClaw, nginx, docker, tailscaled. Add more as services are deployed.
+- **Watched services list**: Default is empty; each application role appends its own service to the list.
 
 ## Dependencies
 

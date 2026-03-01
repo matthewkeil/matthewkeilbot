@@ -18,7 +18,7 @@ Fresh Ubuntu VPS (Ubuntu 24.04 LTS)
 │   ├── sysctl hardening (network security kernel params)
 │   ├── auditd (system event audit logging)
 │   ├── unattended-upgrades (security patches only, no auto-reboot)
-│   └── /run/shm hardened (noexec,nosuid,nodev)
+│   └── /dev/shm hardened (noexec,nosuid,nodev)
 │
 ├── Services Layer
 │   ├── Docker CE (installed, devops user in docker group, ready for future use)
@@ -95,10 +95,11 @@ ansible/
 ## Secrets Management
 
 - All secrets in `inventory/group_vars/all/vault.yml`, encrypted with `ansible-vault`
-- Vault variables use `vault_` prefix (e.g., `vault_anthropic_api_key`)
-- Runtime variables in `vars.yml` reference vault vars (e.g., `anthropic_api_key: "{{ vault_anthropic_api_key }}"`)
+- Vault variables use `vault_` prefix (e.g., `vault_ssh_port`)
+- Runtime variables in `vars.yml` reference vault vars (e.g., `ssh_port: "{{ vault_ssh_port }}"`)
 - Templates use runtime variable names (never `vault_*` directly)
 - Vault password via `--ask-vault-pass` or `ANSIBLE_VAULT_PASSWORD_FILE` environment variable
+- Tailscale auth key is NOT stored in vault. It is passed via CLI (`-e tailscale_auth_key=...`) during first-time Tailscale setup only.
 
 ### Vault Contents
 
@@ -106,7 +107,6 @@ ansible/
 |----------------|-------------|
 | `vault_ssh_port` | SSH listen port for sshd configuration |
 | `vault_devops_ssh_public_key` | SSH public key for devops user |
-| `vault_tailscale_auth_key` | Tailscale authentication key |
 | `vault_openclaw_port` | OpenClaw gateway listen port |
 
 ## Playbook Execution Order
@@ -155,6 +155,7 @@ Future per-site nginx vhost deployments. Each application that needs a public ng
 | `make services` | `ansible-playbook playbooks/setup_services.yml` | Services layer only |
 | `make toolchain` | `ansible-playbook playbooks/setup_toolchain.yml` | Toolchain layer only |
 | `make deploy-openclaw` | `ansible-playbook playbooks/deploy_openclaw.yml` | Deploy/update OpenClaw |
+| `make upgrade-openclaw` | `ansible-playbook playbooks/deploy_openclaw.yml -e openclaw_version=latest` | Upgrade OpenClaw to latest version |
 | `make update-nginx` | `ansible-playbook playbooks/update_nginx.yml` | Nginx site updates (stub) |
 | `make check` | Syntax check all playbooks + dry-run `all.yml --check --diff` | Validate everything |
 | `make lint` | `ansible-lint && yamllint .` | Lint all files |

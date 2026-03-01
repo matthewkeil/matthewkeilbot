@@ -10,7 +10,9 @@ Install Rust system-wide using rustup. The Rust toolchain is installed to `/opt/
 roles/rust/
 ├── tasks/
 │   └── main.yml
-└── defaults/
+├── defaults/
+│   └── main.yml
+└── meta/
     └── main.yml
 ```
 
@@ -22,6 +24,8 @@ roles/rust/
 | `rust_cargo_home` | `/opt/rust/cargo` | Directory for cargo binaries and registry |
 | `rust_symlink_dir` | `/usr/local/bin` | Directory where Rust tool symlinks are created |
 | `rust_toolchain` | `stable` | Rust toolchain channel to install and keep updated |
+| `rust_rustup_version` | `1.27.1` | Version of rustup-init binary to download |
+| `rust_rustup_checksum` | `""` | SHA256 checksum for the rustup-init binary; must be set in `group_vars`; role will fail if empty |
 
 ### Binaries Symlinked to `rust_symlink_dir`
 
@@ -42,11 +46,12 @@ roles/rust/
 ### 2. Bootstrap rustup (first install only)
 
 - Check whether `{{ rust_cargo_home }}/bin/rustup` exists
-- If not present: download `https://sh.rustup.rs` to `/tmp/rustup-init.sh` with mode `0755`
-- If not present: run the installer with flags `--no-modify-path --default-toolchain {{ rust_toolchain }}`, setting `RUSTUP_HOME` and `CARGO_HOME` environment variables
+- Assert that `rust_rustup_checksum` is non-empty (fail with descriptive message if empty)
+- If not present: download the `rustup-init` binary from `https://static.rust-lang.org/rustup/archive/{{ rust_rustup_version }}/x86_64-unknown-linux-gnu/rustup-init` to `/tmp/rustup-init` with SHA256 checksum verification, mode `0755`
+- If not present: run `/tmp/rustup-init` with flags `--no-modify-path --default-toolchain {{ rust_toolchain }}`, setting `RUSTUP_HOME` and `CARGO_HOME` environment variables
 - Remove the temporary installer file
 
-**Note on rustup checksum**: The `sh.rustup.rs` installer is not checksummed because the Rust project updates it frequently. It is only downloaded once (bootstrap) and served over HTTPS. Subsequent toolchain updates go through `rustup update` which verifies signatures internally.
+**Note on rustup checksum**: The `rustup-init` binary is pinned to a specific version and verified with SHA256 checksum. The checksum must be set in `group_vars`. Subsequent toolchain updates go through `rustup update` which verifies signatures internally.
 
 ### 3. Update toolchain
 
@@ -59,13 +64,13 @@ roles/rust/
 ### 5. Profile script
 
 - Deploy `/etc/profile.d/rust.sh` owned by root, mode `0644`, exporting `RUSTUP_HOME`, `CARGO_HOME`, and prepending `${CARGO_HOME}/bin` to `PATH`
-- Verify the installation by running `rustc --version` via the cargo bin path
+- Verify the installation by running `rustc --version` via the cargo bin path — use `changed_when: false`
 - Display the verified version and cargo home path
 
 ## Design Decisions
 
 - **System-wide to /opt/rust**: Both `RUSTUP_HOME` and `CARGO_HOME` are under `/opt/rust`. This keeps all Rust files in one place.
-- **No checksum on rustup bootstrap**: Intentional — see note above. The installer is frequently updated by the Rust project.
+- **Checksummed rustup-init**: The rustup-init binary is version-pinned and SHA256-verified, matching the Zig role's checksum pattern.
 - **`--no-modify-path`**: Prevents rustup from modifying shell profiles. We manage PATH via `/etc/profile.d/rust.sh`.
 - **Symlinks in /usr/local/bin**: Makes Rust tools available to all users without profile sourcing (useful for systemd services).
 

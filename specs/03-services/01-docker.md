@@ -12,7 +12,9 @@ roles/docker/
 │   └── main.yml
 ├── defaults/
 │   └── main.yml
-└── handlers/
+├── handlers/
+│   └── main.yml
+└── meta/
     └── main.yml
 ```
 
@@ -35,11 +37,13 @@ Optional `docker_daemon_config` overrides (not applied when empty):
 
 ### 1. Install prerequisites
 - Install: ca-certificates, curl, gnupg
+- Note: These packages are also installed by the common role; this task is a no-op safety net.
 
 ### 2. Add Docker GPG key
 - Create `/etc/apt/keyrings` directory (mode 0755)
 - Download and install Docker GPG key to `/etc/apt/keyrings/docker.gpg`
 - Source URL: `https://download.docker.com/linux/ubuntu/gpg`
+- Note: Do NOT use the deprecated `ansible.builtin.apt_key` module. Use direct GPG key download to `/etc/apt/keyrings/` as specified.
 
 ### 3. Add Docker repository
 - Detect system architecture via `dpkg --print-architecture`
@@ -54,10 +58,10 @@ Optional `docker_daemon_config` overrides (not applied when empty):
 ### 5. Manage Docker group membership
 - Add each user in `docker_users` to the `docker` group (append, do not replace)
 - For each user in `docker_denied_users`, remove them from the docker group using `gpasswd -d`
-- Non-zero exit from `gpasswd -d` (user not in group) is not a failure
+- For `gpasswd -d`: use specific `failed_when` condition that only suppresses the 'is not a member of' error message, not all errors. Use `changed_when` that checks for 'removed' in the output.
 
 ### 6. Configure Docker daemon (conditional)
-- Write `docker_daemon_config` as JSON to `/etc/docker/daemon.json` (owner root, mode 0644)
+- Write `docker_daemon_config` as JSON to `/etc/docker/daemon.json` (owner root, group docker, mode 0640)
 - Only applied when `docker_daemon_config` is non-empty
 - Notifies handler to restart Docker
 
@@ -86,4 +90,4 @@ Optional `docker_daemon_config` overrides (not applied when empty):
 - Docker repo addition is idempotent
 - Package installation is idempotent (state: present)
 - User group management is idempotent
-- `gpasswd -d` for non-members returns non-zero but is handled with `failed_when: false`
+- `gpasswd -d` for non-members returns non-zero; handled with specific `failed_when` condition (only suppresses 'is not a member of' error)

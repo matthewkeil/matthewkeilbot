@@ -12,7 +12,9 @@ roles/common/
 │   └── main.yml
 ├── defaults/
 │   └── main.yml
-└── handlers/
+├── handlers/
+│   └── main.yml
+└── meta/
     └── main.yml
 ```
 
@@ -36,7 +38,7 @@ Default packages installed via `common_packages`:
 - Update apt cache (`cache_valid_time: 3600`)
 - Run `dist-upgrade` with `autoremove` and `autoclean`
 - Check for `/var/run/reboot-required`
-- Reboot if required (`reboot_timeout: 300`), waiting for SSH to come back before continuing
+- Reboot if required using `ansible.builtin.reboot` module (reboot_timeout: 300), waiting for SSH to come back before continuing. Note: if running after the security role has changed the SSH port, the reboot module reconnects on the port from `~/.ssh/config`.
 
 ### 2. Install essential packages
 - Install all packages listed in `common_packages`
@@ -52,9 +54,14 @@ Default packages installed via `common_packages`:
 - Set the system hostname to `common_hostname`
 - Ensure `127.0.1.1 <hostname>` is present in `/etc/hosts`
 
+### 6. Configure journald
+- Set `SystemMaxUse=500M` in `/etc/systemd/journald.conf` to limit journal disk usage
+- Notify `Restart journald` handler
+
 ## Handlers
 
 - `Restart systemd-timesyncd` — restarts and enables `systemd-timesyncd`
+- `Restart journald` — restarts `systemd-journald`
 
 ## Dependencies
 

@@ -10,7 +10,9 @@ Install Node.js system-wide using the `n` version manager. Installs `n` to manag
 roles/node/
 ├── tasks/
 │   └── main.yml
-└── defaults/
+├── defaults/
+│   └── main.yml
+└── meta/
     └── main.yml
 ```
 
@@ -29,20 +31,25 @@ roles/node/
 
 - Check current Node.js version (skip install if correct version is already present)
 - Check current `n` version (skip install if correct version is already present)
+- Both checks use `changed_when: false`
 
-### 2. Install n version manager
+### 2. Assert checksum is set
+
+- Assert that `node_n_checksum` is non-empty before downloading. Fail with descriptive message: 'node_n_checksum must be set to the SHA256 checksum for n {version}. Get it from the n GitHub releases page.'
+
+### 3. Install n version manager
 
 - Download the `n` binary from the GitHub releases URL for `node_n_version`, with SHA256 checksum verification; skip if correct version already installed
 - Copy the downloaded binary to `{{ node_n_install_dir }}/bin/n` owned by root with mode `0755`; skip if correct version already installed
 - Remove the temporary download file
 
-### 3. Install Node.js
+### 4. Install Node.js
 
 - Run `n {{ node_version }}` with `N_PREFIX` set to `node_n_install_dir`; report changed only when output contains `'installed'`
-- Verify the resulting `node --version` output
+- Verify the resulting `node --version` output — use `changed_when: false`
 - Display the installed Node.js version and path
 
-### 4. Set up profile script
+### 5. Set up profile script
 
 - Deploy `/etc/profile.d/node.sh` owned by root, mode `0644`, exporting `N_PREFIX` to `node_n_install_dir`
 

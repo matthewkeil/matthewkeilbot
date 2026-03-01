@@ -1,6 +1,6 @@
 # matthewkeilbot
 
-OpenClaw deployment configuration for AWS using CDK and Ansible.
+OpenClaw deployment configuration using Ansible for VPS and CDK for AWS infrastructure.
 
 ## Project Structure
 
@@ -35,15 +35,16 @@ npx cdk deploy MatthewkeilbotStack -c computeAccountId=XXX -c domainName=bot.mat
 # Ansible
 cd ansible
 ansible-galaxy collection install -r requirements.yml
-ansible-playbook playbooks/setup.yml
-ansible-playbook playbooks/deploy.yml
+make bootstrap          # First-time VPS setup (as root)
+make system             # System layer only
+make deploy-openclaw    # Deploy OpenClaw
 ```
 
 ## Architecture
 
-- **Two AWS accounts**: DNS account (Route53) and Compute account (EC2)
-- **Direct EC2**: No ALB, uses Elastic IP + Caddy for TLS
-- **Caddy**: Auto TLS via Let's Encrypt, reverse proxy to OpenClaw on :18789
+- **VPS deployment**: Ubuntu 24.04 LTS on any VPS provider (DigitalOcean, Hetzner, Linode, Contabo, etc.)
+- **Nginx**: Multi-vhost skeleton for future sites, OpenClaw accessed via Tailscale Serve
+- **Tailscale**: Private overlay network with Serve for HTTPS access to OpenClaw
 
 ## Code Style
 

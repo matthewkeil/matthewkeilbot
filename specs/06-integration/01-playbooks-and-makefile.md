@@ -6,11 +6,20 @@ Wire all roles together into playbooks and provide a Makefile for operator-facin
 
 ## Playbooks
 
+### `playbooks/bootstrap_ssh.yml` — First-Time Bootstrap
+
+Runs as root on port 22 against a fresh VPS. Creates the devops user and hardens SSH. After this playbook completes, the host is only accessible as devops on the configured SSH port.
+
+- **pre_tasks**: Assert that `devops_ssh_public_key` is defined and non-empty. Fail with message directing operator to `make vault-edit`.
+- **become**: true
+- **roles** (in order): `common`, `users`, `security`
+
 ### `playbooks/all.yml` — Full Convergence
 
 Runs everything. Used for initial setup and periodic full convergence.
 
-- **pre_tasks**: Assert that `devops_ssh_public_key`, `tailscale_auth_key`, `anthropic_api_key`, and `telegram_bot_token` are all defined and non-empty. Fail with a message directing the operator to `make vault-edit` if any are missing.
+- **pre_tasks**: Assert that `devops_ssh_public_key` is defined and non-empty. Fail with a message directing the operator to `make vault-edit` if missing.
+- **become**: true
 - **roles** (in order):
   - System layer: `common`, `users`, `security`
   - Services layer: `docker`, `nginx`, `tailscale`, `monitoring`
@@ -21,6 +30,7 @@ Runs everything. Used for initial setup and periodic full convergence.
 
 Base system hardening and user setup. First playbook to run on a fresh host (via bootstrap).
 
+- **become**: true
 - **pre_tasks**: Assert that `devops_ssh_public_key` is defined and non-empty.
 - **roles**: `common`, `users`, `security`
 
@@ -28,25 +38,39 @@ Base system hardening and user setup. First playbook to run on a fresh host (via
 
 Installs infrastructure services. Assumes `setup_system.yml` has already run successfully.
 
-- **pre_tasks**: Assert that `tailscale_auth_key` is defined.
+- **become**: true
 - **roles**: `docker`, `nginx`, `tailscale`, `monitoring`
 
 ### `playbooks/setup_toolchain.yml` — Toolchain Layer Only
 
-Updates language toolchains without touching anything else. No pre_task assertions required.
+Updates language toolchains without touching anything else.
 
+- **become**: true
+- **pre_tasks**: Assert at least 5GB free disk space on `/opt` and `/usr/local` partitions. Fail with descriptive message: 'Insufficient disk space for toolchain installation. At least 5GB free is required.'
 - **roles**: `node`, `python`, `rust`, `zig`
 
 ### `playbooks/deploy_openclaw.yml` — Deploy OpenClaw
 
 Deploys or updates the OpenClaw bot instance. Assumes system, services, and toolchain layers are already in place.
 
-- **pre_tasks**: Verify that `node` is on PATH by running `node --version` (fail if Node.js is unavailable).
+- **become**: true
+- **pre_tasks**: Verify that `node` is on PATH by running `node --version` with `changed_when: false`, register the result. Then assert the result succeeded with descriptive fail message: 'Node.js is not available. Run `make toolchain` before deploying OpenClaw.'
 - **roles**: `openclaw`
 
 ### `playbooks/update_nginx.yml` — Update Nginx Sites (stub)
 
 Stub for future per-site nginx vhost deployments. Currently a no-op placeholder. Each application needing a public nginx vhost will be wired here as it is added.
+
+### Rollback Playbooks (manual use only)
+
+Rollback playbooks are provided for critical roles. They do not have Makefile targets and are run directly via `ansible-playbook`:
+
+- `playbooks/rollback_security.yml` -- Reverts SSH config to backup, resets UFW rules to allow port 22
+- `playbooks/rollback_openclaw.yml` -- Stops the OpenClaw service, optionally rolls back to a previous npm version
+
+### Note on import_tasks vs include_tasks
+
+All role `main.yml` files use `ansible.builtin.import_tasks` for unconditional task includes and `ansible.builtin.include_tasks` for conditional includes (e.g., security role feature toggles, tailscale serve conditional).
 
 ## Makefile Targets
 
@@ -55,13 +79,14 @@ The Makefile lives in the `ansible/` directory. All targets prompt for vault pas
 | Target | Category | Description |
 |--------|----------|-------------|
 | `help` | Info | Lists all available targets with descriptions |
-| `bootstrap` | Setup | First-time full convergence connecting as `root` on port `22` (fresh host) |
-| `system` | Setup | Runs `setup_system.yml` (system layer only) |
-| `services` | Setup | Runs `setup_services.yml` (services layer only) |
+| `bootstrap` | Setup | First-time VPS bootstrap connecting as root on port 22 (creates devops user, hardens SSH) (`--ask-vault-pass`) |
+| `system` | Setup | Runs `setup_system.yml` (system layer only) (`--ask-vault-pass`) |
+| `services` | Setup | Runs `setup_services.yml` (services layer only) (`--ask-vault-pass`) (pass `-e tailscale_auth_key=tskey-...` for first-time Tailscale setup) |
 | `toolchain` | Setup | Runs `setup_toolchain.yml` (no vault password required) |
-| `deploy-openclaw` | Deploy | Runs `deploy_openclaw.yml` (no vault password required) |
+| `deploy-openclaw` | Deploy | Runs `deploy_openclaw.yml` (`--ask-vault-pass`) |
+| `upgrade-openclaw` | Deploy | Upgrades OpenClaw to latest version (`--ask-vault-pass`) |
 | `update-nginx` | Deploy | Runs `update_nginx.yml` stub (no-op for now) |
-| `check` | Validation | Syntax-checks all playbooks, then dry-runs `all.yml` with `--check --diff` |
+| `check` | Validation | Syntax-checks all playbooks, then dry-runs `all.yml` with `--check --diff` (`--ask-vault-pass`) |
 | `lint` | Validation | Runs `ansible-lint` on all playbooks and `yamllint` on the full tree |
 | `vault-edit` | Vault | Opens the encrypted vault file in `$EDITOR` for editing |
 | `vault-encrypt` | Vault | Encrypts the plaintext vault file |
@@ -77,7 +102,7 @@ The Makefile lives in the `ansible/` directory. All targets prompt for vault pas
 `yamllint` is configured (via `.yamllint.yml`) with the following rules:
 
 - Line length: max 120 characters (warning level, not error)
-- Truthy values: `true`, `false`, `yes`, `no` are all allowed
+- Truthy values: only `true` and `false` are allowed
 - Comments: must start with a space; minimum one space from content
 - Indentation: 2 spaces; sequences are indented
 
@@ -87,18 +112,19 @@ The bootstrap process handles the chicken-and-egg problem of configuring a fresh
 
 ```
 1. Fresh VPS: root user, SSH on port 22
-   └── make bootstrap (connects as root:22)
-       ├── common role: installs packages
+   └── make bootstrap (connects as root:22, runs bootstrap_ssh.yml)
+       ├── common role: installs packages, configures system
        ├── users role: creates devops user + SSH key
-       ├── security role:
-       │   ├── UFW: allows configured SSH port FIRST
-       │   ├── SSH: changes port to vault_ssh_port, restricts to devops user
-       │   └── (other hardening)
-       ├── ... (remaining roles)
-       └── Done: host now only accessible as devops on configured SSH port
+       └── security role:
+           ├── UFW: allows configured SSH port FIRST
+           ├── SSH: changes port to vault_ssh_port, restricts to devops user
+           └── (other hardening)
+   └── Done: host now only accessible as devops on configured SSH port
 
-2. All subsequent runs: devops user, SSH on configured port (via ~/.ssh/config)
-   └── make setup / make deploy-openclaw (uses ansible.cfg defaults)
+2. Operator updates ~/.ssh/config with the new SSH port
+
+3. All subsequent runs: devops user, SSH on configured port (via ~/.ssh/config)
+   └── make system / make services / make toolchain / make deploy-openclaw
 ```
 
 **Critical**: If bootstrap fails mid-way through the security role (after SSH port change but before UFW allows the new port), the host may become inaccessible. The security role prevents this by:

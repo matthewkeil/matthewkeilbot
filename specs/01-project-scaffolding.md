@@ -13,28 +13,22 @@ Create the Ansible project skeleton: configuration, dependencies, inventory stru
 inventory = inventory/hosts.ini
 roles_path = roles
 remote_user = devops
-host_key_checking = False
+host_key_checking = accept-new
 retry_files_enabled = False
 gathering = smart
 fact_caching = jsonfile
 fact_caching_connection = .ansible_cache
-fact_caching_timeout = 86400
-
-[privilege_escalation]
-become = True
-become_method = sudo
-become_user = root
-become_ask_pass = False
+fact_caching_timeout = 3600
 
 [ssh_connection]
 pipelining = True
 ssh_args = -o ControlMaster=auto -o ControlPersist=60s
-control_path = /tmp/ansible-ssh-%%h-%%p-%%r
 ```
 
 **Notes:**
 
 - `remote_user = devops` — matches the dedicated deploy user
+- `host_key_checking = accept-new` — accepts host key on first connection, rejects changes on subsequent connections
 - `pipelining = True` — reduces SSH round-trips, requires `requiretty` disabled in sudoers
 - `fact_caching` — avoids re-gathering facts on subsequent plays within the same run
 
@@ -92,7 +86,7 @@ service_users:
     home: "/home/matthewkeilbot"
 
 # Tailscale
-tailscale_auth_key: "{{ vault_tailscale_auth_key }}"
+# tailscale_auth_key: passed via CLI (-e tailscale_auth_key=...) for first-time setup only
 tailscale_serve_enabled: true
 
 # OpenClaw
@@ -101,10 +95,8 @@ openclaw_port: "{{ vault_openclaw_port }}"
 openclaw_bot_name: "matthewkeilbot"
 openclaw_user: "matthewkeilbot"
 openclaw_home: "/home/matthewkeilbot"
-openclaw_sandbox_mode: "off"
+openclaw_sandbox_mode: "container"
 openclaw_gateway_bind: "loopback"
-anthropic_api_key: "{{ vault_anthropic_api_key }}"
-telegram_bot_token: "{{ vault_telegram_bot_token }}"
 
 # Toolchain versions
 node_version: 24
@@ -126,7 +118,6 @@ Template (before encryption):
 ---
 vault_ssh_port: 22
 vault_devops_ssh_public_key: "ssh-ed25519 AAAA... devops@matthewkeilbot"
-vault_tailscale_auth_key: "tskey-auth-..."
 vault_openclaw_port: 18789
 ```
 
@@ -139,6 +130,40 @@ vault_openclaw_port: 18789
 __pycache__/
 .vault_pass
 *.unencrypted
+```
+
+**Notes:**
+
+- `.ansible_cache/` — fact cache directory, should be mode 0700
+
+### `ansible/.ansible-lint`
+
+```yaml
+---
+profile: production
+exclude_paths:
+  - .ansible_cache/
+  - .git/
+skip_list: []
+```
+
+### `ansible/.yamllint.yml`
+
+```yaml
+---
+extends: default
+rules:
+  line-length:
+    max: 120
+    level: warning
+  truthy:
+    allowed-values: ['true', 'false']
+  comments:
+    require-starting-space: true
+    min-spaces-from-content: 1
+  indentation:
+    spaces: 2
+    indent-sequences: true
 ```
 
 ### `ansible/Makefile`

@@ -16,10 +16,13 @@ roles/security/
 │   ├── sysctl.yml
 │   ├── auditd.yml
 │   ├── shared_memory.yml
+│   ├── proc.yml
 │   └── unattended_upgrades.yml
 ├── defaults/
 │   └── main.yml
 ├── handlers/
+│   └── main.yml
+├── meta/
 │   └── main.yml
 └── templates/
     ├── sshd_config.j2
@@ -74,18 +77,18 @@ Default rules in `security_ufw_rules`:
 
 | Variable | Default |
 |---|---|
-| `security_fail2ban_bantime` | `600` |
+| `security_fail2ban_bantime` | `3600` |
 | `security_fail2ban_findtime` | `600` |
-| `security_fail2ban_maxretry` | `5` |
+| `security_fail2ban_maxretry` | `3` |
 | `security_fail2ban_ssh_enabled` | `true` |
-| `security_fail2ban_nginx_enabled` | `true` |
+| `security_fail2ban_nginx_enabled` | `false` |
 
 ### sysctl
 
 Default hardening parameters applied to `/etc/sysctl.d/99-hardening.conf`:
 
 IP forwarding (both IPv4 and IPv6):
-- `net.ipv4.ip_forward: 0` — disabled by default; Docker overrides to 1 at startup
+- `net.ipv4.ip_forward`: not managed by sysctl hardening — removed from the hardening config to avoid breaking Docker networking. Docker manages this setting at daemon startup.
 - `net.ipv6.conf.all.forwarding: 0`
 
 ICMP hardening:
@@ -115,7 +118,7 @@ Kernel hardening:
 | Variable | Default |
 |---|---|
 | `security_auditd_max_log_file` | `50` (MB) |
-| `security_auditd_num_logs` | `5` (rotated files to keep) |
+| `security_auditd_num_logs` | `10` (rotated files to keep) |
 | `security_auditd_max_log_file_action` | `rotate` |
 
 ### unattended-upgrades
@@ -137,14 +140,15 @@ Execution order (important — see Critical Safety Notes):
 4. `sysctl.yml`
 5. `auditd.yml`
 6. `shared_memory.yml`
-7. `unattended_upgrades.yml`
+7. `proc.yml`
+8. `unattended_upgrades.yml`
 
 ### `ufw.yml`
 - Install `ufw` package
 - Set default incoming policy to `security_ufw_default_incoming`
 - Set default outgoing policy to `security_ufw_default_outgoing`
 - Apply all rules from `security_ufw_rules` (rule, port, proto, optional comment)
-- Allow all traffic on `tailscale0` interface with `ignore_errors: true` (may not exist on first run; the tailscale role adds this rule after installation)
+- Check if `tailscale0` interface exists (via `/sys/class/net/tailscale0`). If present, allow specific ports on `tailscale0` interface: SSH (22/tcp), node_exporter (9100/tcp), HTTPS for Tailscale Serve (443/tcp), and the OpenClaw port (`openclaw_port`/tcp). Do not use `ignore_errors: true` — use the interface existence check as a conditional.
 - Enable UFW
 
 ### `ssh.yml`
@@ -159,10 +163,10 @@ Configures OpenSSH with the following key settings:
 - `AllowUsers` set to `security_ssh_allow_users`; `DenyUsers` set to `security_ssh_deny_users` (if non-empty)
 - `PermitRootLogin no`, `PermitEmptyPasswords no`, `StrictModes yes`, `IgnoreRhosts yes`, `HostbasedAuthentication no`
 - `MaxAuthTries` and `LoginGraceTime` from defaults
-- `X11Forwarding` from defaults; TCP and agent forwarding allowed; tunnel not permitted
+- `X11Forwarding` from defaults; TCP forwarding disabled (`AllowTcpForwarding no`), agent forwarding disabled (`AllowAgentForwarding no`); tunnel not permitted
 - Keep-alive: `ClientAliveInterval 300`, `ClientAliveCountMax 2`
 - Logging: `SyslogFacility AUTH`, `LogLevel VERBOSE`
-- SFTP subsystem enabled
+- SFTP subsystem disabled
 
 ### `fail2ban.yml`
 - Install `fail2ban` package
@@ -178,7 +182,7 @@ Configures fail2ban with:
 ### `sysctl.yml`
 - Apply all parameters from `security_sysctl_params` to `/etc/sysctl.d/99-hardening.conf`, reloading immediately
 
-Note on Docker compatibility: Docker sets `net.ipv4.ip_forward=1` when it starts. The sysctl role sets it to 0 initially, but Docker's service overrides this at startup. This is correct — IP forwarding should only be enabled when Docker is actually running.
+Note on Docker compatibility: Docker manages `net.ipv4.ip_forward` at daemon startup, so it is not included in the sysctl hardening config.
 
 ### `auditd.yml`
 - Install `auditd` and `audispd-plugins` packages
@@ -195,13 +199,22 @@ Audit rules covering:
 - `chown`/`fchown`/`fchownat`/`lchown` by users with uid >= 1000 (tagged `ownership_changes`)
 - Failed `open`/`openat`/`creat` (EACCES and EPERM) by users with uid >= 1000 (tagged `access_denied`)
 - Execution of `insmod`, `modprobe`, `rmmod` (tagged `kernel_modules`)
+- Write/access changes to `/var/run/docker.sock` (tagged `docker_access`)
+- Execution of `/usr/bin/docker` (tagged `docker_command`)
+- Write/attribute changes to `/var/lib/tailscale/` (tagged `tailscale_config`)
+- Write/attribute changes to `/etc/crontab` and `/var/spool/cron/` (tagged `cron_modification`)
+- Read/write/attribute changes to `/home/matthewkeilbot/.openclaw/env` (tagged `openclaw_secrets`)
+- Write/attribute changes to `/opt/monitoring/alert-check.sh` (tagged `monitoring_script`)
 - `-e 2` at end — makes audit configuration immutable until reboot
 
 ### `shared_memory.yml`
-- Mount `/run/shm` as `tmpfs` with options: `defaults,noexec,nosuid,nodev`
+- Mount `/dev/shm` as `tmpfs` with options: `defaults,noexec,nosuid,nodev`
+
+### `proc.yml`
+- Mount `/proc` with `hidepid=2` option for system-wide process hiding (prevents non-root users from seeing other users' processes)
 
 ### `unattended_upgrades.yml`
-- Install `unattended-upgrades` and `apt-listchanges` packages
+- Install `unattended-upgrades`, `apt-listchanges`, and `needrestart` packages (needrestart detects services that need restart after library updates)
 - Deploy `50unattended-upgrades.j2` to `/etc/apt/apt.conf.d/50unattended-upgrades` (mode `0644`, root owned)
 - Write `/etc/apt/apt.conf.d/20auto-upgrades` to enable: daily package list updates, daily unattended upgrades, weekly autoclean
 

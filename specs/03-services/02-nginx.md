@@ -18,8 +18,10 @@ roles/nginx/
 │   ├── nginx.conf.j2
 │   ├── default-catchall.conf.j2
 │   └── example-site.conf.j2.example
-└── files/
-    └── .gitkeep
+├── files/
+│   └── .gitkeep
+└── meta/
+    └── main.yml
 ```
 
 ## Defaults
@@ -36,8 +38,9 @@ roles/nginx/
 Default security headers:
 - `X-Frame-Options: SAMEORIGIN`
 - `X-Content-Type-Options: nosniff`
-- `X-XSS-Protection: 1; mode=block`
 - `Referrer-Policy: strict-origin-when-cross-origin`
+- `Content-Security-Policy: default-src 'self'`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains`
 
 ## Tasks
 
@@ -52,8 +55,8 @@ Default security headers:
 - Notify handler to reload nginx on change
 
 ### 3. Set up sites-available / sites-enabled pattern
-- Ensure `/etc/nginx/sites-available` exists (owner root, mode 0755)
-- Ensure `/etc/nginx/sites-enabled` exists (owner root, mode 0755)
+- Ensure `/etc/nginx/sites-available` exists (owner root, group www-data, mode 0750)
+- Ensure `/etc/nginx/sites-enabled` exists (owner root, group www-data, mode 0750)
 - When `nginx_remove_default_site` is true, remove both `/etc/nginx/sites-enabled/default` and `/etc/nginx/sites-available/default`
 
 ### 4. Deploy catch-all default server
@@ -88,10 +91,9 @@ Main nginx configuration. Key settings:
 ### `default-catchall.conf.j2`
 
 Catch-all server block that silently drops unrecognized connections. Key settings:
-- Listens on port 80 and 443 as `default_server` for both IPv4 and IPv6
+- Listens on port 80 as `default_server` for both IPv4 and IPv6. Port 443 listener is NOT included (no active HTTPS sites; Tailscale Serve handles HTTPS for OpenClaw).
 - `server_name _` (matches anything not matched by another block)
 - Returns `444` (close connection without response) for all requests
-- Includes commented-out SSL certificate directives for a self-signed default cert (manual step, not automated)
 
 ### `example-site.conf.j2.example`
 
@@ -111,7 +113,7 @@ Reference documentation deployed to `/etc/nginx/sites-available/README-example-s
 ## Design Decisions
 
 - **Catch-all returns 444**: Silently drops connections to unrecognized hostnames, preventing hostname enumeration and reducing attack surface.
-- **HTTPS in catch-all commented out**: Requires generating a self-signed cert first. Left as a manual step since it is not critical for a host that does not serve public HTTPS yet.
+- **No HTTPS catch-all**: Port 443 is not included in the catch-all since there are no active public HTTPS sites. Tailscale Serve provides HTTPS for OpenClaw. When HTTPS sites are added, a self-signed certificate should be generated for the catch-all.
 - **`server_tokens off`**: Hides nginx version from response headers.
 - **Security headers in http block**: Applied globally to all sites. Individual sites can override.
 - **Example file is not `.conf`**: Named `README-example-site.conf` (no symlink), so nginx never loads it.
