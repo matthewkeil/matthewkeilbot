@@ -29,10 +29,8 @@ PHASE 1: DESIGN             You act as the Architect in planning mode
     |                        Write spec to specs/<SPEC_NAME>.md
     v
 PHASE 2: ORGANIZATION       Create agent team
-    |                        Spawn Architect + Devil's Advocate
-    |                        Devil's Advocate challenges the spec
-    |                        Spawn Best Practices + Security Auditors
-    |                        All three audit the spec from their domains
+    |                        Spawn all 5 agents (Architect, DA, BP, Sec, Linux)
+    |                        DA challenge + 3 domain audits run in parallel
     |                        Architect addresses all findings
     |                        Architect creates task breakdown
     v
@@ -107,7 +105,7 @@ Read the detailed instructions in [phase-1-design.md](phase-1-design.md) and exe
 ### Phase 2: Organization
 Read the detailed instructions in [phase-2-organization.md](phase-2-organization.md) and execute them.
 
-**Summary:** Create the agent team. Spawn an Architect and Devil's Advocate. The Devil's Advocate challenges the spec. Then spawn the Best Practices Specialist, Ansible Security Auditor, and Linux Security Auditor — all three audit the spec from their domain perspective in parallel. The Architect addresses all findings. Then the Architect creates a task breakdown organized into work streams with dependencies.
+**Summary:** Create the agent team. Spawn all five agents at once: Architect, Devil's Advocate, Best Practices Specialist, Ansible Security Auditor, and Linux Security Auditor. The DA challenge and all three domain audits run in parallel — all four message the Architect with their concerns simultaneously. The Architect addresses all findings. Then the Architect creates a task breakdown organized into work streams with dependencies.
 
 ### Phase 3: Implementation
 Read the detailed instructions in [phase-3-implementation.md](phase-3-implementation.md) and execute them.

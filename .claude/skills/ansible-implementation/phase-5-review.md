@@ -162,13 +162,17 @@ The Devil's Advocate handles the entire review-challenge process autonomously:
 When the Devil's Advocate reports the triaged findings:
 
 1. Review the triage — ensure Must Fix items are genuinely critical
-2. Create tasks for the Builder for each Must Fix item
+2. Create tasks for the Builder for each Must Fix and Should Fix item
 3. Message the Builder:
 
 ```
-Builder: The formal review is complete. The following Must Fix items need to be addressed:
+Builder: The formal review is complete. Fix the following items:
 
+MUST FIX (blocking — these must be resolved):
 <list the Must Fix items with file:line references and specific fixes>
+
+SHOULD FIX (non-blocking — address these as well):
+<list the Should Fix items with file:line references and specific fixes>
 
 Fix each item. For any fix you're unsure about, consult the relevant specialist
 (best-practices, ansible-security, or linux-security) before making the change.
@@ -181,8 +185,8 @@ Mark each task complete when done. Message me when all fixes are complete.
 
 After the Builder reports fixes are complete:
 
-1. Check: Are there remaining Must Fix items?
-   - If the triaged report only had Must Fix items that are now fixed: **review is complete**
+1. Check: Are there remaining Must Fix or Should Fix items?
+   - If all Must Fix and Should Fix items are resolved: **review is complete**
    - If reviewers raised new concerns during the challenge round: **start next cycle**
 
 2. If another cycle is needed:
@@ -223,7 +227,7 @@ When the formal review is complete (all Must Fix items resolved):
    - Findings by category across all reviewers
    - Number of findings resolved
    - Summary of what was implemented (reference the spec)
-   - Should Fix or Nit items that were intentionally deferred
+   - Any Nit items that were intentionally deferred
    - Test strategy and rollout plan (from Phase 4)
 
 2. Ask the user if they want to:
@@ -242,7 +246,7 @@ When the formal review is complete (all Must Fix items resolved):
 Phase 5 is complete when:
 - [ ] All three domain reviews are complete
 - [ ] Devil's Advocate has challenged each reviewer
-- [ ] All Must Fix items are resolved
+- [ ] All Must Fix and Should Fix items are resolved
 - [ ] User has been presented with the completion summary
 - [ ] User has confirmed they are satisfied
 - [ ] All teammates have been shut down
