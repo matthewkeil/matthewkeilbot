@@ -79,18 +79,49 @@
     - "'is not a member of' not in docker_gpasswd_result.stderr"
   changed_when: "'removed' in docker_gpasswd_result.stderr"
 
-# 6. Configure Docker daemon (conditional)
+# 6. Configure Docker daemon
+- name: Ensure Docker config directory exists
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: "0755"
+
 - name: Deploy Docker daemon configuration
-  ansible.builtin.copy:
+  ansible.builtin.template:
+    src: daemon.json.j2
     dest: /etc/docker/daemon.json
-    content: "{{ docker_daemon_config | to_nice_json }}\n"
     owner: root
     group: docker
     mode: "0640"
   notify: Restart docker
-  when: docker_daemon_config | length > 0
 
-# 7. Audit rules for Docker
+# 7. Docker UFW isolation (DOCKER-USER chain)
+- name: Deploy Docker UFW isolation rules
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/after.rules
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Docker isolation"
+    insertbefore: "^COMMIT$"
+    block: |
+      # Docker port isolation - block all forwarded traffic by default
+      :DOCKER-USER - [0:0]
+
+      # Allow established connections (container-initiated outbound traffic)
+      -A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+      # Allow localhost (host-to-container communication)
+      -A DOCKER-USER -i lo -j ACCEPT
+
+      # Allow Tailscale interface (Tailscale Serve to containers)
+      -A DOCKER-USER -i tailscale0 -j ACCEPT
+
+      # Default deny all other forwarded traffic to containers
+      -A DOCKER-USER -j DROP
+    create: false
+  notify:
+    - Reload UFW
+    - Restart docker
+
+# 9. Audit rules for Docker
 - name: Deploy Docker audit rules
   ansible.builtin.copy:
     dest: /etc/audit/rules.d/docker.rules
@@ -103,7 +134,7 @@
     mode: "0640"
   notify: Reload audit rules
 
-# 8. Enable services
+# 10. Enable services
 - name: Enable and start Docker service
   ansible.builtin.systemd:
     name: docker

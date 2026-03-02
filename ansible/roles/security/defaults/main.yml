@@ -23,6 +23,7 @@ security_ssh_deny_users: "{{ service_users | default([]) | map(attribute='name')
 # UFW
 security_ufw_default_incoming: deny
 security_ufw_default_outgoing: allow
+security_ufw_default_routed: deny
 security_ufw_rules:
   - rule: limit
     port: "{{ ssh_port }}"
@@ -46,6 +47,7 @@ security_fail2ban_nginx_enabled: false
 
 # sysctl
 security_sysctl_params:
+  net.ipv4.ip_forward: 1
   net.ipv6.conf.all.forwarding: 0
   net.ipv4.icmp_echo_ignore_broadcasts: 1
   net.ipv4.icmp_ignore_bogus_error_responses: 1

@@ -191,6 +191,9 @@
             'Default: deny (incoming)'
             in test_ufw_status.stdout
           - >-
+            'deny (routed)'
+            in test_ufw_status.stdout
+          - >-
             ssh_port | string ~ '/tcp'
             in test_ufw_status.stdout
           - "'80/tcp' in test_ufw_status.stdout"
@@ -229,6 +232,7 @@
       changed_when: false
       register: test_sysctl_values
       loop:
+        - net.ipv4.ip_forward
         - kernel.randomize_va_space
         - kernel.kptr_restrict
         - kernel.dmesg_restrict
@@ -244,6 +248,9 @@
     - name: "Sysctl - assert critical security parameters"
       ansible.builtin.assert:
         that:
+          - >-
+            (_r | selectattr('item', 'eq', 'net.ipv4.ip_forward')
+            | first).stdout.split('=')[1] | trim == '1'
           - >-
             (_r | selectattr('item', 'eq', 'kernel.randomize_va_space')
             | first).stdout.split('=')[1] | trim == '2'

@@ -67,6 +67,7 @@ All components are enabled by default and can be individually disabled:
 |---|---|
 | `security_ufw_default_incoming` | `deny` |
 | `security_ufw_default_outgoing` | `allow` |
+| `security_ufw_default_routed` | `deny` |
 
 Default rules in `security_ufw_rules`:
 - SSH port — `limit` (rate limited), TCP
@@ -87,8 +88,8 @@ Default rules in `security_ufw_rules`:
 
 Default hardening parameters applied to `/etc/sysctl.d/99-hardening.conf`:
 
-IP forwarding (both IPv4 and IPv6):
-- `net.ipv4.ip_forward`: not managed by sysctl hardening — removed from the hardening config to avoid breaking Docker networking. Docker manages this setting at daemon startup.
+IP forwarding:
+- `net.ipv4.ip_forward: 1` — explicitly enabled for Docker container networking. Managed here (not left to Docker) to prevent race conditions between sysctl and Docker daemon startup.
 - `net.ipv6.conf.all.forwarding: 0`
 
 ICMP hardening:
@@ -147,6 +148,7 @@ Execution order (important — see Critical Safety Notes):
 - Install `ufw` package
 - Set default incoming policy to `security_ufw_default_incoming`
 - Set default outgoing policy to `security_ufw_default_outgoing`
+- Set default routed policy to `security_ufw_default_routed` (deny — defense-in-depth for Docker container isolation; Docker's own iptables rules fire before UFW's FORWARD default)
 - Apply all rules from `security_ufw_rules` (rule, port, proto, optional comment)
 - Enable UFW
 

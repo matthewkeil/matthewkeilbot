@@ -14,6 +14,11 @@
     direction: outgoing
     default: "{{ security_ufw_default_outgoing }}"
 
+- name: Set UFW default routed policy
+  community.general.ufw:
+    direction: routed
+    default: "{{ security_ufw_default_routed }}"
+
 - name: Apply UFW rules
   community.general.ufw:
     rule: "{{ item.rule }}"

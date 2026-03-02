@@ -15,12 +15,14 @@
 #   {{ openclaw_user }} ALL=(ALL) NOPASSWD: ALL
 
 # Service control - openclaw service only
-{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start openclaw
-{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop openclaw
-{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart openclaw
-{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status openclaw
-{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl enable openclaw
-{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl disable openclaw
+# NOTE: 'status' uses 'systemctl show' instead of 'systemctl status' to prevent
+# pager-based privilege escalation (GTFOBins: less -> !/bin/bash as root)
+{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start openclaw@*
+{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop openclaw@*
+{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart openclaw@*
+{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl show openclaw@*
+{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl enable openclaw@*
+{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl disable openclaw@*
 # daemon-reload affects all units (required after service file changes)
 {{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload
 
@@ -36,4 +38,6 @@
 {{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/tailscale whois *
 
 # Journal access - openclaw logs only
-{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u openclaw *
+# --no-pager MUST be first to prevent pager-based privilege escalation
+{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/journalctl --no-pager -u openclaw@* -n *
+{{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/journalctl --no-pager -u openclaw@* --since *

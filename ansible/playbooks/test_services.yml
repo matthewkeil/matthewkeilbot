@@ -51,19 +51,47 @@
           - "'docker' in test_devops_docker.stdout"
         fail_msg: "User 'devops' is not in the docker group."
 
-    - name: "Docker - check matthewkeilbot group membership"
-      ansible.builtin.command:
-        cmd: groups matthewkeilbot
-      register: test_bot_docker
-      changed_when: false
+    - name: "Docker - check daemon.json exists"
+      ansible.builtin.stat:
+        path: /etc/docker/daemon.json
+      register: test_docker_daemon_json
 
-    - name: "Docker - assert matthewkeilbot is NOT in docker group"
+    - name: "Docker - assert daemon.json is deployed"
       ansible.builtin.assert:
         that:
-          - "'docker' not in test_bot_docker.stdout"
-        fail_msg: >-
-          Service user 'matthewkeilbot' should not be
-          in the docker group.
+          - test_docker_daemon_json.stat.exists
+          - test_docker_daemon_json.stat.mode == '0640'
+        fail_msg: "Docker daemon.json is missing or has wrong permissions."
+
+    - name: "Docker - read daemon.json"
+      ansible.builtin.slurp:
+        src: /etc/docker/daemon.json
+      register: test_docker_daemon_content
+
+    - name: "Docker - assert daemon.json has security settings"
+      ansible.builtin.assert:
+        that:
+          - _cfg['no-new-privileges'] == true
+          - _cfg['userland-proxy'] == false
+          - _cfg['live-restore'] == true
+          - _cfg['iptables'] == true
+        fail_msg: "Docker daemon.json is missing required security settings."
+      vars:
+        _cfg: "{{ test_docker_daemon_content.content | b64decode | from_json }}"
+
+    - name: "Docker - check DOCKER-USER rules in after.rules"
+      ansible.builtin.command:
+        cmd: grep -c 'DOCKER-USER' /etc/ufw/after.rules
+      register: test_docker_user_rules
+      changed_when: false
+      failed_when: false
+
+    - name: "Docker - assert DOCKER-USER chain is configured"
+      ansible.builtin.assert:
+        that:
+          - test_docker_user_rules.rc == 0
+          - test_docker_user_rules.stdout | int > 0
+        fail_msg: "DOCKER-USER chain rules not found in /etc/ufw/after.rules."
 
     - name: "Docker - run docker info"
       ansible.builtin.command:

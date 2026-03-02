@@ -67,10 +67,10 @@ Creates and configures the openclaw system user. This user is **not** created by
 - Home directory set to `openclaw_home` with mode `0755` (subprocesses need to traverse).
 - Configures `.bashrc` with: 256-color terminal support, pnpm PATH (`PNPM_HOME`, `~/.local/bin`), color aliases, `XDG_RUNTIME_DIR`, and DBus session bus address.
 - Creates `.bash_profile` that sources `.bashrc` for login shells.
-- Deploys scoped sudoers file (`/etc/sudoers.d/<user>`, mode `0440`, validated with `visudo`):
-  - `systemctl start|stop|restart|status|enable|disable openclaw` and `daemon-reload`
+- Deploys scoped sudoers file from `openclaw-sudoers.j2` template (`/etc/sudoers.d/<user>`, mode `0440`, validated with `visudo`):
+  - `systemctl start|stop|restart|show|enable|disable openclaw@*` and `daemon-reload` (uses `show` instead of `status` to prevent pager-based privilege escalation via GTFOBins)
   - `tailscale status|up|down|ip|version|ping|whois` (diagnostics + connect/disconnect)
-  - `journalctl -u openclaw` (own logs only)
+  - `journalctl --no-pager -u openclaw@* -n *` and `--since *` (`--no-pager` must be first to prevent pager escape)
 - Adds user to `docker` group (required for container sandbox mode) and resets SSH connection to apply the group change.
 - Enables `loginctl linger` for systemd user services without login.
 - Creates runtime directory at `/run/user/<uid>` (mode `0700`).
