@@ -7,33 +7,24 @@
     state: present
 
 - name: Configure auditd max_log_file
-  community.general.ini_file:
+  ansible.builtin.lineinfile:
     path: /etc/audit/auditd.conf
-    section: null
-    option: max_log_file
-    value: "{{ security_auditd_max_log_file }}"
-    mode: "0640"
-    no_extra_spaces: true
+    regexp: '^max_log_file\s*='
+    line: "max_log_file = {{ security_auditd_max_log_file }}"
   notify: Restart auditd
 
 - name: Configure auditd num_logs
-  community.general.ini_file:
+  ansible.builtin.lineinfile:
     path: /etc/audit/auditd.conf
-    section: null
-    option: num_logs
-    value: "{{ security_auditd_num_logs }}"
-    mode: "0640"
-    no_extra_spaces: true
+    regexp: '^num_logs\s*='
+    line: "num_logs = {{ security_auditd_num_logs }}"
   notify: Restart auditd
 
 - name: Configure auditd max_log_file_action
-  community.general.ini_file:
+  ansible.builtin.lineinfile:
     path: /etc/audit/auditd.conf
-    section: null
-    option: max_log_file_action
-    value: "{{ security_auditd_max_log_file_action }}"
-    mode: "0640"
-    no_extra_spaces: true
+    regexp: '^max_log_file_action\s*='
+    line: "max_log_file_action = {{ security_auditd_max_log_file_action }}"
   notify: Restart auditd
 
 - name: Deploy audit rules

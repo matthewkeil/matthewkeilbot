@@ -1,9 +1,12 @@
 ---
 - name: Restart sshd
-  ansible.builtin.systemd:
-    name: sshd
-    state: restarted
-    enabled: true
+  ansible.builtin.shell: |
+    if systemctl is-active ssh.socket > /dev/null 2>&1; then
+      systemctl daemon-reload
+      systemctl restart ssh.socket
+    fi
+    systemctl restart ssh
+  changed_when: true
 
 - name: Restart fail2ban
   ansible.builtin.systemd:
@@ -12,7 +15,6 @@
     enabled: true
 
 - name: Restart auditd
-  ansible.builtin.systemd:
-    name: auditd
-    state: restarted
-    enabled: true
+  ansible.builtin.command:
+    cmd: service auditd restart
+  changed_when: true

@@ -38,15 +38,17 @@
     name: "{{ common_locale }}"
     state: present
 
-- name: Configure default locale
-  ansible.builtin.copy:
-    dest: /etc/default/locale
-    content: |
-      LANG={{ common_locale }}
-      LC_ALL={{ common_locale }}
-    owner: root
-    group: root
-    mode: "0644"
+- name: Check current system locale
+  ansible.builtin.command:
+    cmd: localectl status
+  register: common_current_locale
+  changed_when: false
+
+- name: Apply system locale
+  ansible.builtin.command:
+    cmd: localectl set-locale LANG={{ common_locale }}
+  when: common_locale not in common_current_locale.stdout
+  changed_when: true
 
 # 5. Set hostname
 - name: Set system hostname

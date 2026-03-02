@@ -30,22 +30,9 @@
 -w /sbin/modprobe -p x -k kernel_modules
 -w /sbin/rmmod -p x -k kernel_modules
 
-# Docker monitoring
--w /var/run/docker.sock -p wa -k docker_access
--w /usr/bin/docker -p x -k docker_command
-
-# Tailscale configuration
--w /var/lib/tailscale/ -p wa -k tailscale_config
-
 # Cron monitoring
 -w /etc/crontab -p wa -k cron_modification
 -w /var/spool/cron/ -p wa -k cron_modification
-
-# OpenClaw secrets
--w {{ openclaw_home }}/.openclaw/env -p rwa -k openclaw_secrets
-
-# Monitoring script
--w /opt/monitoring/alert-check.sh -p wa -k monitoring_script
 
 # Make audit configuration immutable until reboot
 -e 2

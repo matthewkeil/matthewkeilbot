@@ -249,6 +249,30 @@
         - services
         - all
 
+    # ── UFW + Tailscale (tags: services) ──────────────────────────
+    - name: "UFW - check node_exporter not publicly exposed"
+      ansible.builtin.shell: |
+        set -o pipefail
+        ufw status | grep '9100' | grep -v 'on tailscale0' | grep -c 'ALLOW' || echo '0'
+      args:
+        executable: /bin/bash
+      changed_when: false
+      register: test_9100_public
+      tags:
+        - services
+        - all
+
+    - name: "UFW - assert node_exporter only on tailscale0"
+      ansible.builtin.assert:
+        that:
+          - "test_9100_public.stdout | trim == '0'"
+        fail_msg: >-
+          Port 9100 (node_exporter) is exposed publicly --
+          should only be on tailscale0.
+      tags:
+        - services
+        - all
+
     # ── Monitoring (tags: services) ───────────────────────────────
     - name: Check node_exporter service state
       ansible.builtin.systemd:
@@ -329,6 +353,28 @@
         that:
           - "'alert-check.sh' in test_crontab.stdout"
         fail_msg: "alert-check.sh not found in crontab."
+      tags:
+        - services
+        - all
+
+    # ── Service audit rules (tags: services) ──────────────────────
+    - name: "Audit - list active rules"
+      ansible.builtin.command:
+        cmd: auditctl -l
+      register: test_service_audit_rules
+      changed_when: false
+      tags:
+        - services
+        - all
+
+    - name: "Audit - assert service-specific rules are loaded"
+      ansible.builtin.assert:
+        that:
+          - "'/var/run/docker.sock' in test_service_audit_rules.stdout"
+          - "'/var/lib/tailscale/' in test_service_audit_rules.stdout"
+          - "'/opt/monitoring/alert-check.sh' in test_service_audit_rules.stdout"
+          - "'openclaw_secrets' in test_service_audit_rules.stdout"
+        fail_msg: "Service-specific audit rules are not loaded."
       tags:
         - services
         - all

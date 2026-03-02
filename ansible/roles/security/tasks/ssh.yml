@@ -1,4 +1,35 @@
 ---
+- name: Check if ssh.socket is active (Ubuntu 24.04 socket activation)
+  ansible.builtin.command:
+    cmd: systemctl is-active ssh.socket
+  register: security_ssh_socket_active
+  changed_when: false
+  failed_when: false
+
+- name: Override ssh.socket listen port
+  when: security_ssh_socket_active.rc == 0
+  block:
+    - name: Create ssh.socket override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/ssh.socket.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure ssh.socket to use custom port
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/ssh.socket.d/override.conf
+        content: |
+          [Socket]
+          ListenStream=
+          ListenStream=0.0.0.0:{{ security_ssh_port }}
+          ListenStream=[::]:{{ security_ssh_port }}
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart sshd
+
 - name: Deploy sshd configuration
   ansible.builtin.template:
     src: sshd_config.j2

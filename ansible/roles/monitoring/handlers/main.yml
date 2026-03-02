@@ -5,3 +5,8 @@
     state: restarted
     enabled: true
     daemon_reload: true
+
+- name: Reload audit rules
+  ansible.builtin.command:
+    cmd: service auditd restart
+  changed_when: true

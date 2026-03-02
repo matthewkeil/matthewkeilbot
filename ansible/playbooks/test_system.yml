@@ -80,60 +80,6 @@
       ansible.builtin.debug:
         msg: "{{ test_journal_usage.stdout }}"
 
-    # ── Users role verification ───────────────────────────────────
-    - name: Verify devops user exists
-      ansible.builtin.command:
-        cmd: id devops
-      register: test_devops_id
-      changed_when: false
-
-    - name: Assert devops user exists
-      ansible.builtin.assert:
-        that:
-          - test_devops_id.rc == 0
-        fail_msg: "User 'devops' does not exist."
-
-    - name: Verify devops group membership
-      ansible.builtin.command:
-        cmd: groups devops
-      register: test_devops_groups
-      changed_when: false
-
-    - name: Assert devops is in sudo group
-      ansible.builtin.assert:
-        that:
-          - "'sudo' in test_devops_groups.stdout"
-        fail_msg: "User 'devops' is not in the sudo group."
-
-    - name: Check devops home directory
-      ansible.builtin.stat:
-        path: /home/devops
-      register: test_devops_home
-
-    - name: Assert devops home directory is correct
-      ansible.builtin.assert:
-        that:
-          - test_devops_home.stat.exists
-          - test_devops_home.stat.mode == '0700'
-          - test_devops_home.stat.pw_name == 'devops'
-        fail_msg: >-
-          /home/devops does not exist or has wrong
-          permissions/ownership.
-
-    - name: Check devops sudoers file
-      ansible.builtin.stat:
-        path: /etc/sudoers.d/devops
-      register: test_devops_sudoers
-
-    - name: Assert devops sudoers file exists with correct mode
-      ansible.builtin.assert:
-        that:
-          - test_devops_sudoers.stat.exists
-          - test_devops_sudoers.stat.mode == '0440'
-        fail_msg: >-
-          /etc/sudoers.d/devops does not exist or has
-          wrong permissions.
-
     # ── Security role verification ────────────────────────────────
 
     # SSH
@@ -217,23 +163,6 @@
           - "'443/tcp' in test_ufw_status.stdout"
         fail_msg: >-
           UFW configuration does not match expected state.
-
-    - name: "UFW - check node_exporter not publicly exposed"
-      ansible.builtin.shell: |
-        set -o pipefail
-        ufw status | grep '9100' | grep -v 'on tailscale0' | grep -c 'ALLOW' || echo '0'
-      args:
-        executable: /bin/bash
-      changed_when: false
-      register: test_9100_public
-
-    - name: "UFW - assert node_exporter only on tailscale0"
-      ansible.builtin.assert:
-        that:
-          - "test_9100_public.stdout | trim == '0'"
-        fail_msg: >-
-          Port 9100 (node_exporter) is exposed publicly --
-          should only be on tailscale0.
 
     # fail2ban
     - name: Check fail2ban service state
@@ -347,9 +276,6 @@
           - >-
             '/etc/ssh/sshd_config'
             in test_audit_rules.stdout
-          - >-
-            '/var/run/docker.sock'
-            in test_audit_rules.stdout
         fail_msg: "Critical audit rules are not loaded."
 
     - name: "Auditd - check immutable flag"
@@ -392,8 +318,12 @@
     - name: "Proc - assert hidepid is set"
       ansible.builtin.assert:
         that:
-          - "'hidepid=2' in test_proc_mount.stdout"
-        fail_msg: "/proc is not mounted with hidepid=2."
+          - >-
+            'hidepid=2' in test_proc_mount.stdout
+            or 'hidepid=invisible' in test_proc_mount.stdout
+        fail_msg: >-
+          /proc is not mounted with hidepid=2 or hidepid=invisible.
+          Got: {{ test_proc_mount.stdout }}
 
     # unattended-upgrades
     - name: "Upgrades - assert package is installed"

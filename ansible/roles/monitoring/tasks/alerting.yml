@@ -21,3 +21,14 @@
     minute: "{{ monitoring_alert_cron_minute }}"
     job: /opt/monitoring/alert-check.sh
     user: root
+
+- name: Deploy monitoring audit rules
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/monitoring.rules
+    content: |
+      # Managed by Ansible — monitoring role
+      -w /opt/monitoring/alert-check.sh -p wa -k monitoring_script
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Reload audit rules

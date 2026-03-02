@@ -90,7 +90,20 @@
   notify: Restart docker
   when: docker_daemon_config | length > 0
 
-# 7. Enable services
+# 7. Audit rules for Docker
+- name: Deploy Docker audit rules
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/docker.rules
+    content: |
+      # Managed by Ansible — docker role
+      -w /var/run/docker.sock -p wa -k docker_access
+      -w /usr/bin/docker -p x -k docker_command
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Reload audit rules
+
+# 8. Enable services
 - name: Enable and start Docker service
   ansible.builtin.systemd:
     name: docker
