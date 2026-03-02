@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Install Node.js system-wide using the `n` version manager. Installs `n` to manage Node.js versions, then installs the specified Node.js version. All binaries are available in `/usr/local/bin` for all users.
+Install Node.js system-wide using the `n` version manager. Installs `n` to manage Node.js versions, then installs the specified Node.js version and pnpm package manager. All binaries are available in `/usr/local/bin` for all users.
 
 ## Role Structure
 
@@ -23,7 +23,7 @@ roles/node/
 | `node_n_version` | `v10.2.0` (overridable via `n_version`) | Version of the `n` version manager to install |
 | `node_n_install_dir` | `/usr/local` | Installation prefix for `n` and Node.js binaries |
 | `node_version` | `24` (overridable via `node_version`) | Node.js major version to install |
-| `node_n_checksum` | `""` | SHA256 checksum for the `n` binary; must be set in `group_vars` for production |
+| `node_n_checksum` | `""` | SHA256 checksum for the `n` source tarball; must be set in `group_vars` for production |
 
 ## Tasks
 
@@ -39,9 +39,9 @@ roles/node/
 
 ### 3. Install n version manager
 
-- Download the `n` binary from the GitHub releases URL for `node_n_version`, with SHA256 checksum verification; skip if correct version already installed
-- Copy the downloaded binary to `{{ node_n_install_dir }}/bin/n` owned by root with mode `0755`; skip if correct version already installed
-- Remove the temporary download file
+- Download the `n` source tarball from `https://github.com/tj/n/archive/refs/tags/{version}.tar.gz` with SHA256 checksum verification; skip if correct version already installed
+- Extract tarball and copy `bin/n` script to `{{ node_n_install_dir }}/bin/n` owned by root with mode `0755`
+- Clean up tarball and extracted directory
 
 ### 4. Install Node.js
 
@@ -49,7 +49,13 @@ roles/node/
 - Verify the resulting `node --version` output — use `changed_when: false`
 - Display the installed Node.js version and path
 
-### 5. Set up profile script
+### 5. Install pnpm
+
+- Check if pnpm is already installed (skip if present)
+- Install pnpm globally via `npm install -g pnpm`; report changed only when output contains `'added'`
+- Verify pnpm installation and display version
+
+### 6. Set up profile script
 
 - Deploy `/etc/profile.d/node.sh` owned by root, mode `0644`, exporting `N_PREFIX` to `node_n_install_dir`
 

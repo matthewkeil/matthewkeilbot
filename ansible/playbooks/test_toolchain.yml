@@ -36,6 +36,21 @@
           - test_npm.rc == 0
         fail_msg: "npm is not installed or not in PATH."
 
+    - name: "Toolchain - check pnpm is installed"
+      ansible.builtin.command:
+        cmd: pnpm --version
+      environment:
+        N_PREFIX: /usr/local
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+      register: test_pnpm
+      changed_when: false
+
+    - name: "Toolchain - assert pnpm is available"
+      ansible.builtin.assert:
+        that:
+          - test_pnpm.rc == 0
+        fail_msg: "pnpm is not installed or not in PATH."
+
     # ── Python ──────────────────────────────────────────────────────
     - name: "Toolchain - check Python3 is installed"
       ansible.builtin.command:

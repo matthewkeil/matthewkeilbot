@@ -78,7 +78,41 @@
   ansible.builtin.debug:
     msg: "Node.js {{ node_verified_version.stdout }} installed at {{ node_n_install_dir }}/bin/node"
 
-# 5. Profile script
+# 5. Install pnpm
+- name: Check current pnpm version
+  ansible.builtin.command:
+    cmd: pnpm --version
+  environment:
+    N_PREFIX: "{{ node_n_install_dir }}"
+    PATH: "{{ node_n_install_dir }}/bin:{{ ansible_env.PATH }}"
+  register: node_pnpm_current
+  failed_when: false
+  changed_when: false
+
+- name: Install pnpm via npm
+  ansible.builtin.command:
+    cmd: npm install -g pnpm
+  environment:
+    N_PREFIX: "{{ node_n_install_dir }}"
+    PATH: "{{ node_n_install_dir }}/bin:{{ ansible_env.PATH }}"
+  register: node_pnpm_install
+  changed_when: "'added' in node_pnpm_install.stdout"
+  when: node_pnpm_current.rc != 0
+
+- name: Verify pnpm installation
+  ansible.builtin.command:
+    cmd: pnpm --version
+  environment:
+    N_PREFIX: "{{ node_n_install_dir }}"
+    PATH: "{{ node_n_install_dir }}/bin:{{ ansible_env.PATH }}"
+  register: node_pnpm_verified
+  changed_when: false
+
+- name: Display installed pnpm version
+  ansible.builtin.debug:
+    msg: "pnpm {{ node_pnpm_verified.stdout }} installed"
+
+# 6. Profile script
 - name: Deploy Node.js profile script
   ansible.builtin.copy:
     dest: /etc/profile.d/node.sh
