@@ -42,8 +42,8 @@ zig_version: "0.14.1"
 
 # Checksums (required — roles will fail if empty; get from GitHub releases)
 monitoring_node_exporter_checksum: "a550cd5c05f760b7934a2d0afad66d2e92e681482f5f57a917465b1fba3b02a6" # SHA256 for node_exporter-1.7.0.linux-amd64.tar.gz
-node_n_checksum: "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5" # SHA256 for n v10.2.0 binary
-zig_checksum: "24aeeec8af16c381934a6cd7d95c807a8cb2cf7df9fa40d359aa884195c4716c" # SHA256 for zig-linux-x86_64-0.14.1.tar.xz
+node_n_checksum: "5914f0d5e89aadaaaeb803baa89a7582747b0c57ad30201b3522cd76f504c7d9" # SHA256 for n-10.2.0.tar.gz from GitHub archive
+zig_checksum: "24aeeec8af16c381934a6cd7d95c807a8cb2cf7df9fa40d359aa884195c4716c" # SHA256 for zig-x86_64-linux-0.14.1.tar.xz
 rust_rustup_checksum: "6aeece6993e902708983b209d04c0d1dbb14ebb405ddb87def578d41f920f56d" # SHA256 for rustup-init 1.27.1 x86_64-unknown-linux-gnu
 python_pyenv_commit_sha: "d04a081dcb18863ca6179070d7b7afe73559581b" # Git commit SHA for pyenv v2.4.22
 

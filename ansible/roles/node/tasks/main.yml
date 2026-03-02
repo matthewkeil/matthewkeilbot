@@ -24,28 +24,40 @@
       Get it from the n GitHub releases page.
 
 # 3. Install n version manager
-- name: Download n binary
-  ansible.builtin.get_url:
-    url: "https://github.com/tj/n/releases/download/{{ node_n_version }}/n"
-    dest: /tmp/n
-    checksum: "sha256:{{ node_n_checksum }}"
-    mode: "0755"
+- name: Install n version manager
   when: node_n_current_version.rc != 0 or node_n_version not in node_n_current_version.stdout
+  block:
+    - name: Download n tarball
+      ansible.builtin.get_url:
+        url: "https://github.com/tj/n/archive/refs/tags/{{ node_n_version }}.tar.gz"
+        dest: "/tmp/n-{{ node_n_version }}.tar.gz"
+        checksum: "sha256:{{ node_n_checksum }}"
+        mode: "0644"
 
-- name: Install n binary
-  ansible.builtin.copy:
-    src: /tmp/n
-    dest: "{{ node_n_install_dir }}/bin/n"
-    owner: root
-    group: root
-    mode: "0755"
-    remote_src: true
-  when: node_n_current_version.rc != 0 or node_n_version not in node_n_current_version.stdout
+    - name: Extract n tarball
+      ansible.builtin.unarchive:
+        src: "/tmp/n-{{ node_n_version }}.tar.gz"
+        dest: /tmp/
+        remote_src: true
 
-- name: Remove temporary n download
-  ansible.builtin.file:
-    path: /tmp/n
-    state: absent
+    - name: Install n script
+      ansible.builtin.copy:
+        src: "/tmp/n-{{ node_n_version | regex_replace('^v', '') }}/bin/n"
+        dest: "{{ node_n_install_dir }}/bin/n"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+
+    - name: Clean up n tarball
+      ansible.builtin.file:
+        path: "/tmp/n-{{ node_n_version }}.tar.gz"
+        state: absent
+
+    - name: Clean up n extracted directory
+      ansible.builtin.file:
+        path: "/tmp/n-{{ node_n_version | regex_replace('^v', '') }}"
+        state: absent
 
 # 4. Install Node.js
 - name: Install Node.js via n

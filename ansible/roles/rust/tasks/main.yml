@@ -86,6 +86,9 @@
 - name: Verify Rust installation
   ansible.builtin.command:
     cmd: "{{ rust_cargo_home }}/bin/rustc --version"
+  environment:
+    RUSTUP_HOME: "{{ rust_rustup_home }}"
+    CARGO_HOME: "{{ rust_cargo_home }}"
   register: rust_rustc_verified
   changed_when: false
 

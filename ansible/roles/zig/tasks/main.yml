@@ -22,26 +22,26 @@
           - zig_checksum | length > 0
         fail_msg: >-
           zig_checksum must be set to the SHA256 checksum for
-          zig-linux-{{ zig_arch }}-{{ zig_version }}.tar.xz.
+          zig-{{ zig_arch }}-linux-{{ zig_version }}.tar.xz.
           Get it from https://ziglang.org/download/
 
     - name: Download Zig tarball
       ansible.builtin.get_url:
-        url: "https://ziglang.org/download/{{ zig_version }}/zig-linux-{{ zig_arch }}-{{ zig_version }}.tar.xz"
-        dest: "/tmp/zig-linux-{{ zig_arch }}-{{ zig_version }}.tar.xz"
+        url: "https://ziglang.org/download/{{ zig_version }}/zig-{{ zig_arch }}-linux-{{ zig_version }}.tar.xz"
+        dest: "/tmp/zig-{{ zig_arch }}-linux-{{ zig_version }}.tar.xz"
         checksum: "sha256:{{ zig_checksum }}"
         mode: "0644"
 
     - name: Extract Zig tarball
       ansible.builtin.unarchive:
-        src: "/tmp/zig-linux-{{ zig_arch }}-{{ zig_version }}.tar.xz"
+        src: "/tmp/zig-{{ zig_arch }}-linux-{{ zig_version }}.tar.xz"
         dest: "{{ zig_install_dir }}"
         remote_src: true
-        creates: "{{ zig_install_dir }}/zig-linux-{{ zig_arch }}-{{ zig_version }}/zig"
+        creates: "{{ zig_install_dir }}/zig-{{ zig_arch }}-linux-{{ zig_version }}/zig"
 
     - name: Set Zig directory ownership
       ansible.builtin.file:
-        path: "{{ zig_install_dir }}/zig-linux-{{ zig_arch }}-{{ zig_version }}"
+        path: "{{ zig_install_dir }}/zig-{{ zig_arch }}-linux-{{ zig_version }}"
         owner: root
         group: root
         mode: "0755"
@@ -49,7 +49,7 @@
 # 4. Create symlink
 - name: Create Zig symlink
   ansible.builtin.file:
-    src: "{{ zig_install_dir }}/zig-linux-{{ zig_arch }}-{{ zig_version }}/zig"
+    src: "{{ zig_install_dir }}/zig-{{ zig_arch }}-linux-{{ zig_version }}/zig"
     dest: "{{ zig_symlink_dir }}/zig"
     state: link
     force: true
@@ -61,7 +61,7 @@
     patterns: "zig-linux-*"
     file_type: directory
     excludes:
-      - "zig-linux-{{ zig_arch }}-{{ zig_version }}"
+      - "zig-{{ zig_arch }}-linux-{{ zig_version }}"
   register: zig_old_versions
   when:
     - zig_cleanup_old_versions
@@ -81,7 +81,7 @@
 # 5. Clean up and verify
 - name: Remove Zig tarball
   ansible.builtin.file:
-    path: "/tmp/zig-linux-{{ zig_arch }}-{{ zig_version }}.tar.xz"
+    path: "/tmp/zig-{{ zig_arch }}-linux-{{ zig_version }}.tar.xz"
     state: absent
 
 - name: Verify Zig installation
@@ -92,4 +92,4 @@
 
 - name: Display verified Zig version
   ansible.builtin.debug:
-    msg: "Zig {{ zig_verified.stdout }} installed at {{ zig_install_dir }}/zig-linux-{{ zig_arch }}-{{ zig_version }}"
+    msg: "Zig {{ zig_verified.stdout }} installed at {{ zig_install_dir }}/zig-{{ zig_arch }}-linux-{{ zig_version }}"

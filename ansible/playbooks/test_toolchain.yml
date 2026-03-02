@@ -77,6 +77,9 @@
     - name: "Toolchain - check Rust compiler is installed"
       ansible.builtin.command:
         cmd: /opt/rust/cargo/bin/rustc --version
+      environment:
+        RUSTUP_HOME: /opt/rust/rustup
+        CARGO_HOME: /opt/rust/cargo
       register: test_rustc
       changed_when: false
 
@@ -89,6 +92,9 @@
     - name: "Toolchain - check Cargo is installed"
       ansible.builtin.command:
         cmd: /opt/rust/cargo/bin/cargo --version
+      environment:
+        RUSTUP_HOME: /opt/rust/rustup
+        CARGO_HOME: /opt/rust/cargo
       register: test_cargo
       changed_when: false
 
