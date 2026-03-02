@@ -1,4 +1,7 @@
 ---
+# Connection
+ansible_host: "{{ vault_ansible_host }}"
+
 # System
 system_timezone: "UTC"
 system_locale: "en_US.UTF-8"

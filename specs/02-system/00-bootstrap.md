@@ -72,10 +72,10 @@ roles/bootstrap/
 ### 10. Change SSH port
 - Modifies `/etc/ssh/sshd_config` to set `Port` to `bootstrap_ssh_port`
 - Validated with `sshd -t -f` before applying
-- Notifies `Restart sshd` handler
+- Notifies `Restart sshd (bootstrap)` handler
 
 ### 11. Flush handlers
-- Forces the `Restart sshd` handler to run immediately so the SSH port change takes effect before verification
+- Forces the `Restart sshd (bootstrap)` handler to run immediately so the SSH port change takes effect before verification
 
 ### 12. Verify SSH is listening on new port
 - Uses `wait_for` to confirm the new SSH port is accepting connections
@@ -97,7 +97,7 @@ roles/bootstrap/
 
 ## Handlers
 
-- `Restart sshd` -- restarts and enables `sshd`
+- `Restart sshd (bootstrap)` -- restarts and enables `sshd`. Named distinctly from the security role's `Restart sshd` handler to avoid global handler namespace collisions.
 
 ## Dependencies
 

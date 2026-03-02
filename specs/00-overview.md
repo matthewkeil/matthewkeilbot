@@ -61,12 +61,12 @@ ansible/
 ├── .gitignore                          # Exclude caches, retries, unencrypted vaults
 │
 ├── inventory/
-│   ├── hosts.ini                       # Host inventory
-│   ├── group_vars/    
-│   │   └── all/    
-│   │       ├── vars.yml                # Common variables
+│   ├── hosts.ini                       # Host inventory (no secrets — IP via vault)
+│   ├── group_vars/
+│   │   └── all/
+│   │       ├── vars.yml                # Common variables (references vault_ vars)
 │   │       └── vault.yml               # Encrypted secrets (ansible-vault)
-│   └── host_vars/    
+│   └── host_vars/
 │       └── .gitkeep                    # Ready for per-host overrides
 │
 ├── playbooks/
@@ -76,7 +76,11 @@ ansible/
 │   ├── setup_services.yml              # Services layer (docker + nginx + tailscale + monitoring)
 │   ├── setup_toolchain.yml             # Toolchain layer (node + python + rust + zig)
 │   ├── deploy_openclaw.yml             # Deploy OpenClaw application
-│   └── update_nginx.yml                # Update nginx sites (stub — future use)
+│   ├── update_nginx.yml                # Update nginx sites (stub — future use)
+│   ├── validate_vars.yml              # Validate prerequisite variables
+│   ├── test_bootstrap.yml             # Verify post-bootstrap state (pre-hardening)
+│   ├── test_system.yml                # Verify post-system state
+│   └── test_services_and_app.yml      # Verify services and application state
 │
 └── roles/
     ├── bootstrap/                      # → see specs/02-system/00-bootstrap.md
@@ -100,13 +104,22 @@ ansible/
 - Vault variables use `vault_` prefix (e.g., `vault_ssh_port`)
 - Runtime variables in `vars.yml` reference vault vars (e.g., `ssh_port: "{{ vault_ssh_port }}"`)
 - Templates use runtime variable names (never `vault_*` directly)
-- Vault password via `--ask-vault-pass` or `ANSIBLE_VAULT_PASSWORD_FILE` environment variable
+- Vault password via `.vault_pass` file (configured in `ansible.cfg` as `vault_password_file`)
 - Tailscale auth key is NOT stored in vault. It is passed via CLI (`-e tailscale_auth_key=...`) during first-time Tailscale setup only.
+- The `.vault_pass` file is in `.gitignore` and `.claudeignore` — it must never be committed.
+
+## Architecture
+
+- **Target architecture:** x86_64 (amd64)
+- All binary checksums in `group_vars/all/vars.yml` are for x86_64 artifacts
+- `setup_toolchain.yml` and `setup_services.yml` include a pre_tasks assertion that fails if `ansible_architecture != 'x86_64'`
+- To deploy on a different architecture: update all checksums in `vars.yml` and update the assertion
 
 ### Vault Contents
 
 | Vault Variable | Description |
 |----------------|-------------|
+| `vault_ansible_host` | VPS IP address (used by `ansible_host` in group_vars) |
 | `vault_ssh_port` | SSH listen port for sshd configuration |
 | `vault_devops_ssh_public_key` | SSH public key for devops user |
 | `vault_openclaw_port` | OpenClaw gateway listen port |
@@ -158,18 +171,30 @@ Future per-site nginx vhost deployments. Each application that needs a public ng
 
 ## Invocation (Makefile)
 
-| Target | Command | Description |
-|--------|---------|-------------|
-| `make bootstrap` | `ansible-playbook playbooks/bootstrap_ssh.yml -e ansible_user=root -e ansible_port=22` | First-time VPS bootstrap -- creates devops user + SSH port. Run `make system` next! |
-| `make system` | `ansible-playbook playbooks/setup_system.yml` | System layer (common + users + security) -- run promptly after bootstrap to harden |
-| `make services` | `ansible-playbook playbooks/setup_services.yml` | Services layer only |
-| `make toolchain` | `ansible-playbook playbooks/setup_toolchain.yml` | Toolchain layer only |
-| `make deploy-openclaw` | `ansible-playbook playbooks/deploy_openclaw.yml` | Deploy/update OpenClaw |
-| `make upgrade-openclaw` | `ansible-playbook playbooks/deploy_openclaw.yml -e openclaw_version=latest` | Upgrade OpenClaw to latest version |
-| `make update-nginx` | `ansible-playbook playbooks/update_nginx.yml` | Nginx site updates (stub) |
-| `make check` | Syntax check all playbooks + dry-run `all.yml --check --diff` | Validate everything |
-| `make lint` | `ansible-lint && yamllint .` | Lint all files |
-| `make vault-edit` | `ansible-vault edit ...vault.yml` | Edit vault |
+| Target | Description |
+|--------|-------------|
+| `make bootstrap` | First-time VPS bootstrap — creates devops user + SSH port (as root, port 22). Run `make system` next! |
+| `make system` | System layer (common + users + security) — run promptly after bootstrap to harden |
+| `make services` | Services layer (docker + nginx + tailscale + monitoring). Asserts x86_64 architecture. |
+| `make toolchain` | Toolchain layer (node + python + rust + zig). Asserts x86_64 architecture. |
+| `make deploy-openclaw` | Deploy/update OpenClaw |
+| `make update-nginx` | Nginx site updates (stub) |
+| `make check` | Syntax check all playbooks + dry-run `all.yml --check --diff` |
+| `make lint` | Run ansible-lint and yamllint |
+| `make validate` | Validate all prerequisite variables (no server needed) |
+| `make test-bootstrap` | Verify post-bootstrap state (before `make system`) |
+| `make test-system` | Run system layer verification tests |
+| `make test-app` | Run services/toolchain/application verification tests |
+| `make test` | Run all verification tests (test-system + test-app) |
+| `make vault-edit` | Edit the encrypted vault file |
+| `make vault-view` | View vault contents without decrypting on disk |
+| `make vault-encrypt` | Encrypt the vault file |
+| `make vault-decrypt` | Decrypt the vault file (re-encrypt when done!) |
+| `make ping` | Test connectivity to hosts |
+| `make facts` | Gather and display host facts |
+| `make deps` | Install Ansible Galaxy dependencies |
+
+> **Note:** Vault password is provided automatically via `.vault_pass` file (configured in `ansible.cfg`). No `--ask-vault-pass` needed.
 
 ## Implementation Order
 
