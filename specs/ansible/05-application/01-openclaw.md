@@ -70,6 +70,7 @@ Creates and configures the openclaw system user. This user is **not** created by
   - `systemctl start|stop|restart|status|enable|disable openclaw` and `daemon-reload`
   - `tailscale status|up|down|ip|version|ping|whois` (diagnostics + connect/disconnect)
   - `journalctl -u openclaw` (own logs only)
+- Adds user to `docker` group (required for container sandbox mode) and resets SSH connection to apply the group change.
 - Enables `loginctl linger` for systemd user services without login.
 - Creates runtime directory at `/run/user/<uid>` (mode `0700`).
 - Creates `.ssh` directory (mode `0700`) and adds authorized keys from `openclaw_ssh_keys`.

@@ -199,18 +199,18 @@
           - test_openclaw_bashrc.stat.exists
         fail_msg: "OpenClaw .bashrc is missing."
 
-    - name: "OpenClaw user - assert not in docker group"
+    - name: "OpenClaw user - check docker group membership"
       ansible.builtin.command:
         cmd: getent group docker
       changed_when: false
       failed_when: false
       register: test_openclaw_docker_group
 
-    - name: "OpenClaw user - assert excluded from docker group"
+    - name: "OpenClaw user - assert in docker group"
       ansible.builtin.assert:
         that:
-          - "openclaw_user not in test_openclaw_docker_group.stdout"
-        fail_msg: "OpenClaw user is in the docker group — root-equivalent access."
+          - "openclaw_user in test_openclaw_docker_group.stdout"
+        fail_msg: "OpenClaw user is not in the docker group (required for container sandbox)."
 
     # ── Summary ─────────────────────────────────────────────────────
     - name: All application tests passed

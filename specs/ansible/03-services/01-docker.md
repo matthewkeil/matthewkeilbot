@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Install Docker CE from the official Docker repository. Add the `devops` user to the docker group. Do NOT add service users to the docker group (docker group = root-equivalent access).
+Install Docker CE from the official Docker repository. Add the `devops` user to the docker group. Application roles that need Docker access (e.g., openclaw) add their own users to the docker group — the docker role does not manage application-specific users.
 
 ## Role Structure
 
@@ -42,12 +42,12 @@ Optional `docker_daemon_config` overrides (not applied when empty):
 ### 2. Add Docker GPG key
 - Create `/etc/apt/keyrings` directory (mode 0755)
 - Download and install Docker GPG key to `/etc/apt/keyrings/docker.gpg`
-- Source URL: `https://download.docker.com/linux/ubuntu/gpg`
+- Source URL: `https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg`
 - Note: Do NOT use the deprecated `ansible.builtin.apt_key` module. Use direct GPG key download to `/etc/apt/keyrings/` as specified.
 
 ### 3. Add Docker repository
 - Detect system architecture via `dpkg --print-architecture`
-- Add signed apt repository for the detected arch and Ubuntu release (stable channel)
+- Add signed apt repository for the detected arch and distribution release (stable channel), using `ansible_distribution | lower` for portability
 - Filename: `docker`
 
 ### 4. Install Docker packages
@@ -80,8 +80,8 @@ Optional `docker_daemon_config` overrides (not applied when empty):
 ## Security Notes
 
 - Docker group membership grants root-equivalent access (can mount host filesystem, access Docker socket, etc.)
-- Only the `devops` user should be in the docker group
-- Service users are explicitly removed from docker group on each run
+- The docker role grants access only to the `devops` user; application roles (e.g., openclaw) add their own users as needed for container sandbox functionality
+- Generic service users in `docker_denied_users` are explicitly removed from docker group on each run
 - Docker daemon listens on Unix socket only (no TCP) by default — this must not be changed
 
 ## Dependencies

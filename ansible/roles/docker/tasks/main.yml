@@ -17,7 +17,7 @@
 
 - name: Download Docker GPG key
   ansible.builtin.get_url:
-    url: https://download.docker.com/linux/ubuntu/gpg
+    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
     dest: /tmp/docker-archive-keyring.asc
     mode: "0644"
 
@@ -48,7 +48,7 @@
     repo: >-
       deb [arch={{ docker_dpkg_arch.stdout }}
       signed-by=/etc/apt/keyrings/docker.gpg]
-      https://download.docker.com/linux/ubuntu
+      https://download.docker.com/linux/{{ ansible_distribution | lower }}
       {{ ansible_distribution_release }} stable
     filename: docker
     state: present

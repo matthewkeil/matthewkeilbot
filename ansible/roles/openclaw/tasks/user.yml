@@ -102,6 +102,16 @@
       {{ openclaw_user }} ALL=(ALL) NOPASSWD: /usr/bin/journalctl -u openclaw *
     validate: /usr/sbin/visudo -cf %s
 
+# Docker group access (required for container sandbox mode)
+- name: Add openclaw user to docker group
+  ansible.builtin.user:
+    name: "{{ openclaw_user }}"
+    groups: docker
+    append: true
+
+- name: Reset SSH connection to apply docker group
+  ansible.builtin.meta: reset_connection
+
 # DBus and systemd user services
 - name: Get openclaw user ID
   ansible.builtin.command:
