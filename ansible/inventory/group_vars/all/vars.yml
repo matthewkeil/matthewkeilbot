@@ -2,6 +2,7 @@
 # Connection
 ansible_host: "{{ vault_ansible_host }}"
 ansible_user: "devops"
+ansible_port: "{{ ssh_port }}"
 
 # System
 system_timezone: "UTC"
