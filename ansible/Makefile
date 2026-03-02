@@ -4,13 +4,20 @@ SHELL := /bin/bash
 VAULT_FILE := inventory/group_vars/all/vault.yml
 PLAYBOOK_DIR := playbooks
 
-.PHONY: help bootstrap system services toolchain deploy-openclaw upgrade-openclaw update-nginx \
-        check lint vault-edit vault-encrypt vault-decrypt vault-view inventory ping facts deps \
-        validate test-bootstrap test-system test-app test
+
+deps: ## Install Ansible Galaxy dependencies
+	ansible-galaxy collection install -r requirements.yml --force
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
+##
+##
+##
+##   Playbooks
+##
+##
+##
 bootstrap: ## First-time VPS bootstrap — creates devops user + SSH port (as root, port 22). Run 'make system' next!
 	ansible-playbook $(PLAYBOOK_DIR)/bootstrap_ssh.yml \
 		-e ansible_user=root \
@@ -32,14 +39,16 @@ deploy-openclaw: ## Deploy OpenClaw application
 	ansible-playbook $(PLAYBOOK_DIR)/deploy_openclaw.yml \
 		--ask-vault-pass
 
-upgrade-openclaw: ## Upgrade OpenClaw to latest version
-	ansible-playbook $(PLAYBOOK_DIR)/deploy_openclaw.yml \
-		-e openclaw_version=latest \
-		--ask-vault-pass
-
 update-nginx: ## Update nginx sites (stub — no-op for now)
 	ansible-playbook $(PLAYBOOK_DIR)/update_nginx.yml
 
+##
+##
+##
+##   Utility Commands
+##
+##
+##
 check: ## Syntax-check all playbooks and dry-run all.yml
 	@echo "=== Syntax checking all playbooks ==="
 	@for pb in $(PLAYBOOK_DIR)/*.yml; do \
@@ -55,6 +64,19 @@ lint: ## Run ansible-lint and yamllint
 	ansible-lint
 	yamllint .
 
+ping: ## Test connectivity to hosts
+	ansible vps -m ansible.builtin.ping
+
+facts: ## Gather and display host facts
+	ansible vps -m ansible.builtin.setup
+
+##
+##
+##
+##   Vault Commands
+##
+##
+##
 vault-edit: ## Edit the encrypted vault file
 	ansible-vault edit $(VAULT_FILE)
 
@@ -68,18 +90,13 @@ vault-decrypt: ## Decrypt the vault file (re-encrypt when done!)
 vault-view: ## View vault contents without decrypting on disk
 	ansible-vault view $(VAULT_FILE)
 
-inventory: ## Print the full parsed inventory as JSON
-	ansible-inventory --list
-
-ping: ## Test connectivity to hosts
-	ansible vps -m ansible.builtin.ping
-
-facts: ## Gather and display host facts
-	ansible vps -m ansible.builtin.setup
-
-deps: ## Install Ansible Galaxy dependencies
-	ansible-galaxy collection install -r requirements.yml --force
-
+##
+##
+##
+##   Testing Commands
+##
+##
+##
 validate: ## Validate all prerequisite variables (no server needed)
 	ansible-playbook $(PLAYBOOK_DIR)/validate_vars.yml \
 		--ask-vault-pass
@@ -97,3 +114,7 @@ test-app: ## Run services/toolchain/application verification tests
 		--ask-vault-pass
 
 test: test-system test-app ## Run all verification tests
+
+.PHONY: help bootstrap system services toolchain deploy-openclaw upgrade-openclaw update-nginx \
+        check lint vault-edit vault-encrypt vault-decrypt vault-view inventory ping facts deps \
+        validate test-bootstrap test-system test-app test
