@@ -32,7 +32,11 @@ system: ## System layer (common + users + security) — run promptly after boots
 
 .PHONY: services
 services: ## Run services layer (docker + nginx + tailscale + monitoring)
-	ansible-playbook $(PLAYBOOK_DIR)/setup_services.yml
+    ##
+    ## Must run this playbook with a tailscale auth key to deploy tailscale.  If one is not provided tailscale up will
+    ## not be run. To pass key `make services ARGS='-e tailscale_auth_key=tskey-auth-...'`
+    ##
+	ansible-playbook $(PLAYBOOK_DIR)/setup_services.yml $(ARGS)
 
 .PHONY: toolchain
 toolchain: ## Run toolchain layer (node + python + rust + zig)

@@ -9,11 +9,11 @@
   ansible.builtin.set_fact:
     tailscale_backend_state: "{{ (tailscale_status.stdout | from_json).BackendState }}"
 
-- name: Fail if Tailscale needs login and no auth key provided
-  ansible.builtin.fail:
+- name: Warn if Tailscale needs login and no auth key provided
+  ansible.builtin.debug:
     msg: >-
       Tailscale is in NeedsLogin state but no auth key was provided.
-      Run the playbook with: -e tailscale_auth_key=tskey-auth-...
+      Skipping authentication. Run with: make services ARGS='-e tailscale_auth_key=tskey-auth-...'
       Generate an ephemeral, single-use key from the Tailscale admin console.
   when:
     - tailscale_backend_state == "NeedsLogin"
@@ -50,11 +50,12 @@
     path: /sys/class/net/tailscale0
   register: tailscale_interface
 
-- name: Fail if tailscale0 interface is missing
-  ansible.builtin.fail:
+- name: Warn if tailscale0 interface is missing
+  ansible.builtin.debug:
     msg: >-
       The tailscale0 network interface does not exist. Tailscale may not be
       properly authenticated or the daemon may not be running.
+      Skipping firewall and remaining Tailscale tasks.
   when: not tailscale_interface.stat.exists
 
 - name: Display Tailscale status

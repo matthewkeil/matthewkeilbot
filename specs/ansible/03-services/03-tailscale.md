@@ -33,9 +33,9 @@ roles/tailscale/
 ## Tasks
 
 ### `main.yml`
-- Include `install.yml`
-- Include `authenticate.yml`
-- Include `firewall.yml`
+- Import `install.yml`
+- Import `authenticate.yml`
+- Include `firewall.yml` — conditional on `tailscale_interface.stat.exists` (set by authenticate.yml). Skipped if Tailscale is not authenticated.
 - Deploy Tailscale audit rules to `/etc/audit/rules.d/tailscale.rules` (watches `/var/lib/tailscale/`, tagged `tailscale_config`). Notify `Reload audit rules` handler.
 
 ### `install.yml`
@@ -51,11 +51,12 @@ roles/tailscale/
 ### `authenticate.yml`
 - Check current Tailscale status via `tailscale status --json`
 - Parse `BackendState` to determine if already authenticated
-- Run `tailscale up --authkey=<key> <tailscale_up_args>` only when not already authenticated and `tailscale_auth_key` is defined and non-empty. If the node is in `NeedsLogin` state and `tailscale_auth_key` is not provided, display a clear failure message instructing the operator to pass `-e tailscale_auth_key=tskey-...` on the command line.
+- If `NeedsLogin` and no `tailscale_auth_key` provided: display a warning (not a failure) instructing the operator to pass `-e tailscale_auth_key=tskey-...`. The rest of the playbook continues — firewall tasks are skipped since `tailscale0` won't exist.
+- Run `tailscale up --authkey=<key> <tailscale_up_args>` only when `NeedsLogin` and `tailscale_auth_key` is non-empty.
   - Auth key is never logged (`no_log: true`)
 - If the `tailscale up` command fails (e.g., expired or invalid key), fail with a descriptive message: 'Tailscale authentication failed. The auth key may be expired or invalid. Generate a new ephemeral, single-use key from the Tailscale admin console.'
 - Enable auto-updates via `tailscale set --auto-update` when `tailscale_auto_update` is true
-- Verify `tailscale0` network interface exists (fail if missing)
+- Check `tailscale0` network interface exists. If missing, display a warning (not a failure) — downstream tasks (firewall.yml) are gated on this check.
 - Display current `tailscale status` output as debug info
 
 ### `firewall.yml`

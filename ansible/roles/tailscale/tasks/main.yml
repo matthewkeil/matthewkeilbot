@@ -6,7 +6,8 @@
   ansible.builtin.import_tasks: authenticate.yml
 
 - name: Configure firewall for Tailscale
-  ansible.builtin.import_tasks: firewall.yml
+  ansible.builtin.include_tasks: firewall.yml
+  when: tailscale_interface.stat.exists
 
 - name: Deploy Tailscale audit rules
   ansible.builtin.copy:
