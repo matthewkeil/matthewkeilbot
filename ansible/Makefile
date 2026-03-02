@@ -6,18 +6,18 @@ PLAYBOOK_DIR := playbooks
 
 .PHONY: help bootstrap system services toolchain deploy-openclaw upgrade-openclaw update-nginx \
         check lint vault-edit vault-encrypt vault-decrypt vault-view inventory ping facts deps \
-        validate test-system test-app test
+        validate test-bootstrap test-system test-app test
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-bootstrap: ## First-time VPS bootstrap (connects as root on port 22)
+bootstrap: ## First-time VPS bootstrap — creates devops user + SSH port (as root, port 22). Run 'make system' next!
 	ansible-playbook $(PLAYBOOK_DIR)/bootstrap_ssh.yml \
 		-e ansible_user=root \
 		-e ansible_port=22 \
 		--ask-vault-pass
 
-system: ## Run system layer (common + users + security)
+system: ## System layer (common + users + security) — run promptly after bootstrap to harden
 	ansible-playbook $(PLAYBOOK_DIR)/setup_system.yml \
 		--ask-vault-pass
 
@@ -82,6 +82,10 @@ deps: ## Install Ansible Galaxy dependencies
 
 validate: ## Validate all prerequisite variables (no server needed)
 	ansible-playbook $(PLAYBOOK_DIR)/validate_vars.yml \
+		--ask-vault-pass
+
+test-bootstrap: ## Run bootstrap verification tests (post-bootstrap, pre-system)
+	ansible-playbook $(PLAYBOOK_DIR)/test_bootstrap.yml \
 		--ask-vault-pass
 
 test-system: ## Run system layer verification tests

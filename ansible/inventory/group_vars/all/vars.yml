@@ -4,7 +4,7 @@ system_timezone: "UTC"
 system_locale: "en_US.UTF-8"
 system_hostname: "matthewkeilhost"
 
-# SSH (vault_ssh_port is used by the security role to configure sshd, not for Ansible connections)
+# SSH (vault_ssh_port is used by the bootstrap role and security role to configure sshd, not for Ansible connections)
 ssh_port: "{{ vault_ssh_port }}"
 
 # Users
@@ -37,11 +37,11 @@ pyenv_version: "v2.4.22"
 zig_version: "0.14.1"
 
 # Checksums (required — roles will fail if empty; get from GitHub releases)
-monitoring_node_exporter_checksum: ""  # SHA256 for node_exporter tarball
-node_n_checksum: ""  # SHA256 for n binary
-zig_checksum: ""  # SHA256 for zig tarball
-rust_rustup_checksum: ""  # SHA256 for rustup-init binary
-python_pyenv_commit_sha: ""  # Git commit SHA for pyenv version tag
+monitoring_node_exporter_checksum: "" # SHA256 for node_exporter tarball
+node_n_checksum: "" # SHA256 for n binary
+zig_checksum: "" # SHA256 for zig tarball
+rust_rustup_checksum: "" # SHA256 for rustup-init binary
+python_pyenv_commit_sha: "" # Git commit SHA for pyenv version tag
 
 # Monitoring
 monitoring_alert_method: "log"

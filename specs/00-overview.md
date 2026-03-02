@@ -71,6 +71,7 @@ ansible/
 │
 ├── playbooks/
 │   ├── all.yml                         # Full convergence (all layers)
+│   ├── bootstrap_ssh.yml               # First-time VPS bootstrap (bootstrap role)
 │   ├── setup_system.yml                # System layer (common + users + security)
 │   ├── setup_services.yml              # Services layer (docker + nginx + tailscale + monitoring)
 │   ├── setup_toolchain.yml             # Toolchain layer (node + python + rust + zig)
@@ -78,18 +79,19 @@ ansible/
 │   └── update_nginx.yml                # Update nginx sites (stub — future use)
 │
 └── roles/
-    ├── common/                         # → see docs/specs/02-system/01-common.md
-    ├── users/                          # → see docs/specs/02-system/02-users.md
-    ├── security/                       # → see docs/specs/02-system/03-security.md
-    ├── docker/                         # → see docs/specs/03-services/01-docker.md
-    ├── nginx/                          # → see docs/specs/03-services/02-nginx.md
-    ├── tailscale/                      # → see docs/specs/03-services/03-tailscale.md
-    ├── monitoring/                     # → see docs/specs/03-services/04-monitoring.md
-    ├── node/                           # → see docs/specs/04-toolchain/01-node.md
-    ├── python/                         # → see docs/specs/04-toolchain/02-python.md
-    ├── rust/                           # → see docs/specs/04-toolchain/03-rust.md
-    ├── zig/                            # → see docs/specs/04-toolchain/04-zig.md
-    └── openclaw/                       # → see docs/specs/05-application/01-openclaw.md
+    ├── bootstrap/                      # → see specs/02-system/00-bootstrap.md
+    ├── common/                         # → see specs/02-system/01-common.md
+    ├── users/                          # → see specs/02-system/02-users.md
+    ├── security/                       # → see specs/02-system/03-security.md
+    ├── docker/                         # → see specs/03-services/01-docker.md
+    ├── nginx/                          # → see specs/03-services/02-nginx.md
+    ├── tailscale/                      # → see specs/03-services/03-tailscale.md
+    ├── monitoring/                     # → see specs/03-services/04-monitoring.md
+    ├── node/                           # → see specs/04-toolchain/01-node.md
+    ├── python/                         # → see specs/04-toolchain/02-python.md
+    ├── rust/                           # → see specs/04-toolchain/03-rust.md
+    ├── zig/                            # → see specs/04-toolchain/04-zig.md
+    └── openclaw/                       # → see specs/05-application/01-openclaw.md
 ```
 
 ## Secrets Management
@@ -110,6 +112,14 @@ ansible/
 | `vault_openclaw_port` | OpenClaw gateway listen port |
 
 ## Playbook Execution Order
+
+### `bootstrap_ssh.yml` (first-time VPS bootstrap)
+
+```
+bootstrap
+```
+
+> Run once on a bare VPS as root on port 22. Creates the devops user and changes the SSH port. Follow with `make system` for full hardening.
 
 ### `all.yml` (full convergence)
 
@@ -150,8 +160,8 @@ Future per-site nginx vhost deployments. Each application that needs a public ng
 
 | Target | Command | Description |
 |--------|---------|-------------|
-| `make bootstrap` | `ansible-playbook playbooks/all.yml -e ansible_user=root` | First-time bootstrap |
-| `make system` | `ansible-playbook playbooks/setup_system.yml` | System layer only |
+| `make bootstrap` | `ansible-playbook playbooks/bootstrap_ssh.yml -e ansible_user=root -e ansible_port=22` | First-time VPS bootstrap -- creates devops user + SSH port. Run `make system` next! |
+| `make system` | `ansible-playbook playbooks/setup_system.yml` | System layer (common + users + security) -- run promptly after bootstrap to harden |
 | `make services` | `ansible-playbook playbooks/setup_services.yml` | Services layer only |
 | `make toolchain` | `ansible-playbook playbooks/setup_toolchain.yml` | Toolchain layer only |
 | `make deploy-openclaw` | `ansible-playbook playbooks/deploy_openclaw.yml` | Deploy/update OpenClaw |
@@ -166,6 +176,7 @@ Future per-site nginx vhost deployments. Each application that needs a public ng
 | Phase | Stream | Spec | Dependencies |
 |-------|--------|------|-------------|
 | 1 | Scaffolding | [01-project-scaffolding.md](01-project-scaffolding.md) | None |
+| 2 | System | [02-system/00-bootstrap.md](02-system/00-bootstrap.md) | Phase 1 |
 | 2 | System | [02-system/01-common.md](02-system/01-common.md) | Phase 1 |
 | 2 | System | [02-system/02-users.md](02-system/02-users.md) | Phase 1 |
 | 2 | System | [02-system/03-security.md](02-system/03-security.md) | Phase 1 |

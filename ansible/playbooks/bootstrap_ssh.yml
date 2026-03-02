@@ -13,7 +13,14 @@
           devops_ssh_public_key is not set. Run `make vault-edit` to configure
           vault_devops_ssh_public_key with the SSH public key for the devops user.
 
+    - name: Assert SSH port is configured
+      ansible.builtin.assert:
+        that:
+          - ssh_port is defined
+          - ssh_port | string | regex_search('^\d+$')
+        fail_msg: >-
+          ssh_port is not set or not numeric. Run `make vault-edit` to configure
+          vault_ssh_port.
+
   roles:
-    - common
-    - users
-    - security
+    - bootstrap

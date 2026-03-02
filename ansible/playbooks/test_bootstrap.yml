@@ -1,0 +1,126 @@
+---
+- name: Bootstrap verification tests
+  hosts: vps
+  become: true
+  gather_facts: false
+
+  tasks:
+    # ── Devops user verification ─────────────────────────────────
+    - name: Verify devops user exists
+      ansible.builtin.command:
+        cmd: "id {{ devops_user }}"
+      register: test_devops_id
+      changed_when: false
+
+    - name: Assert devops user exists
+      ansible.builtin.assert:
+        that:
+          - test_devops_id.rc == 0
+        fail_msg: "User '{{ devops_user }}' does not exist."
+
+    - name: Verify devops group membership
+      ansible.builtin.command:
+        cmd: "groups {{ devops_user }}"
+      register: test_devops_groups
+      changed_when: false
+
+    - name: Assert devops is in sudo group
+      ansible.builtin.assert:
+        that:
+          - "'sudo' in test_devops_groups.stdout"
+        fail_msg: "User '{{ devops_user }}' is not in the sudo group."
+
+    - name: Check devops home directory
+      ansible.builtin.stat:
+        path: "/home/{{ devops_user }}"
+      register: test_devops_home
+
+    - name: Assert devops home directory is correct
+      ansible.builtin.assert:
+        that:
+          - test_devops_home.stat.exists
+          - test_devops_home.stat.mode == '0700'
+          - test_devops_home.stat.pw_name == devops_user
+        fail_msg: >-
+          /home/{{ devops_user }} does not exist or has wrong
+          permissions/ownership.
+
+    - name: Check devops sudoers file
+      ansible.builtin.stat:
+        path: "/etc/sudoers.d/{{ devops_user }}"
+      register: test_devops_sudoers
+
+    - name: Assert devops sudoers file exists with correct mode
+      ansible.builtin.assert:
+        that:
+          - test_devops_sudoers.stat.exists
+          - test_devops_sudoers.stat.mode == '0440'
+        fail_msg: >-
+          /etc/sudoers.d/{{ devops_user }} does not exist or has
+          wrong permissions.
+
+    - name: Verify sudoers file content is valid
+      ansible.builtin.command:
+        cmd: "visudo -cf /etc/sudoers.d/{{ devops_user }}"
+      register: test_sudoers_valid
+      changed_when: false
+
+    - name: Assert sudoers file passes validation
+      ansible.builtin.assert:
+        that:
+          - test_sudoers_valid.rc == 0
+        fail_msg: >-
+          /etc/sudoers.d/{{ devops_user }} failed visudo
+          validation.
+
+    # ── Package verification ─────────────────────────────────────
+    - name: Verify acl package is installed
+      ansible.builtin.command:
+        cmd: dpkg -l acl
+      register: test_acl_installed
+      changed_when: false
+
+    - name: Assert acl package is installed
+      ansible.builtin.assert:
+        that:
+          - test_acl_installed.rc == 0
+        fail_msg: "Package 'acl' is not installed."
+
+    # ── SSH verification ─────────────────────────────────────────
+    - name: Verify SSH port is listening
+      ansible.builtin.wait_for:
+        port: "{{ ssh_port }}"
+        host: 0.0.0.0
+        timeout: 5
+
+    - name: "SSH - get effective sshd configuration"
+      ansible.builtin.command:
+        cmd: sshd -T
+      register: test_sshd_config
+      changed_when: false
+
+    - name: "SSH - assert port matches expected value"
+      ansible.builtin.assert:
+        that:
+          - >-
+            'port ' ~ ssh_port | string
+            in test_sshd_config.stdout_lines
+        fail_msg: >-
+          sshd is not configured on port {{ ssh_port }}.
+
+    - name: "SSH - assert root login is still permitted (pre-hardening)"
+      ansible.builtin.assert:
+        that:
+          - >-
+            'permitrootlogin no'
+            not in test_sshd_config.stdout
+        fail_msg: >-
+          Root login is already disabled. This is unexpected
+          in the post-bootstrap, pre-hardening state.
+
+    # ── Summary ──────────────────────────────────────────────────
+    - name: Bootstrap verification passed
+      ansible.builtin.debug:
+        msg: >-
+          Bootstrap verification passed.
+          Run `make system` to apply full hardening.

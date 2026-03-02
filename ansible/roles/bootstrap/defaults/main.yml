@@ -1,0 +1,7 @@
+---
+bootstrap_devops_name: "{{ devops_user | default('devops') }}"
+bootstrap_devops_ssh_public_key: "{{ devops_ssh_public_key }}"
+bootstrap_devops_shell: /bin/bash
+bootstrap_devops_groups:
+  - sudo
+bootstrap_ssh_port: "{{ ssh_port }}"

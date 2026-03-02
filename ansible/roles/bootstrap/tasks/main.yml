@@ -1,0 +1,107 @@
+---
+# 1. Fail-fast validation before any system changes
+# NOTE: This is defense-in-depth. The bootstrap_ssh.yml playbook also has
+# pre_tasks assertions for the global variables. This role-level assertion
+# provides additional validation (port range check) and makes the role safe
+# to use even if invoked from a playbook that lacks pre_tasks.
+- name: Assert required variables are configured
+  ansible.builtin.assert:
+    that:
+      - bootstrap_devops_ssh_public_key is defined
+      - bootstrap_devops_ssh_public_key | length > 0
+      - bootstrap_ssh_port is defined
+      - bootstrap_ssh_port | int > 1023
+      - bootstrap_ssh_port | int < 65536
+    fail_msg: >-
+      Required variables missing or invalid. Run `make vault-edit` to configure
+      vault_devops_ssh_public_key and vault_ssh_port (must be 1024-65535).
+
+# 2. Package prerequisites
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install acl package
+  ansible.builtin.apt:
+    name: acl
+    state: present
+  # NOTE: acl is also in the common role's package list. This duplication is
+  # intentional — bootstrap runs on a bare VPS without the common role.
+  # When `make system` later runs common, this install becomes a no-op.
+
+# 3. Create devops user and configure access
+- name: Create devops group
+  ansible.builtin.group:
+    name: "{{ bootstrap_devops_name }}"
+    state: present
+
+- name: Create devops user
+  ansible.builtin.user:
+    name: "{{ bootstrap_devops_name }}"
+    group: "{{ bootstrap_devops_name }}"
+    groups: "{{ bootstrap_devops_groups }}"
+    home: "/home/{{ bootstrap_devops_name }}"
+    shell: "{{ bootstrap_devops_shell }}"
+    create_home: true
+    state: present
+
+- name: Set devops home directory permissions
+  ansible.builtin.file:
+    path: "/home/{{ bootstrap_devops_name }}"
+    owner: "{{ bootstrap_devops_name }}"
+    group: "{{ bootstrap_devops_name }}"
+    mode: "0700"
+
+- name: Validate SSH public key format
+  ansible.builtin.command:
+    cmd: ssh-keygen -l -f /dev/stdin
+    stdin: "{{ bootstrap_devops_ssh_public_key }}"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  no_log: true
+
+- name: Configure devops authorized_keys
+  ansible.posix.authorized_key:
+    user: "{{ bootstrap_devops_name }}"
+    key: "{{ bootstrap_devops_ssh_public_key }}"
+    exclusive: true
+    state: present
+  no_log: true
+
+- name: Configure devops passwordless sudo
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ bootstrap_devops_name }}"
+    content: "{{ bootstrap_devops_name }} ALL=(ALL) NOPASSWD:ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+# 4. Configure SSH port
+- name: Change SSH port
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?Port\s'
+    line: "Port {{ bootstrap_ssh_port }}"
+    validate: "sshd -t -f %s"
+  notify: Restart sshd (bootstrap)
+
+- name: Apply SSH port configuration
+  ansible.builtin.meta: flush_handlers
+
+- name: Verify SSH is listening on new port
+  ansible.builtin.wait_for:
+    port: "{{ bootstrap_ssh_port }}"
+    host: "0.0.0.0"
+    delay: 2
+    timeout: 30
+
+# 5. Post-bootstrap reminder
+- name: Post-bootstrap security reminder
+  ansible.builtin.debug:
+    msg: >-
+      Bootstrap complete. The server is accessible as '{{ bootstrap_devops_name }}'
+      but is NOT yet hardened. Run `make system` promptly to apply full security
+      hardening (SSH lockdown, UFW, fail2ban, sysctl, auditd).

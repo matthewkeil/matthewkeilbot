@@ -1,6 +1,3 @@
 ---
-- name: Configure devops admin user
-  ansible.builtin.import_tasks: devops.yml
-
 - name: Configure service users
   ansible.builtin.import_tasks: service_users.yml
