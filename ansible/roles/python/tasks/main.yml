@@ -133,7 +133,7 @@
     content: |
       export PYENV_ROOT={{ python_pyenv_root }}
       export PATH="${PYENV_ROOT}/bin:${PATH}"
-      eval "$(pyenv init -)"
+      eval "$(pyenv init - --no-rehash)"
     owner: root
     group: root
     mode: "0644"

@@ -29,8 +29,8 @@ StrictModes yes
 IgnoreRhosts yes
 HostbasedAuthentication no
 X11Forwarding {{ security_ssh_x11_forwarding }}
-AllowTcpForwarding no
-AllowAgentForwarding no
+AllowTcpForwarding {{ security_ssh_allow_tcp_forwarding }}
+AllowAgentForwarding {{ security_ssh_allow_agent_forwarding }}
 PermitTunnel no
 
 # Keep-alive

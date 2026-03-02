@@ -16,6 +16,8 @@ security_ssh_password_authentication: "no"
 security_ssh_max_auth_tries: 3
 security_ssh_login_grace_time: 30
 security_ssh_x11_forwarding: "no"
+security_ssh_allow_tcp_forwarding: "yes"
+security_ssh_allow_agent_forwarding: "no"
 security_ssh_allow_users:
   - "{{ devops_user | default('devops') }}"
 security_ssh_deny_users: "{{ service_users | default([]) | map(attribute='name') | list }}"
