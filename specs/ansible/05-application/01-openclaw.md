@@ -25,7 +25,8 @@ roles/openclaw/
 └── templates/
     ├── openclaw@.service.j2
     ├── openclaw-env.j2
-    └── openclaw-config.json5.j2
+    ├── openclaw-config.json5.j2
+    └── openclaw-sudoers.j2
 ```
 
 ## Defaults
