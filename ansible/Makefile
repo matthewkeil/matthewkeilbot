@@ -23,7 +23,8 @@ help: ## Show this help message
 bootstrap: ## First-time VPS bootstrap — creates devops user + SSH port (as root, port 22). Run 'make system' next!
 	ansible-playbook $(PLAYBOOK_DIR)/bootstrap_ssh.yml \
 		-e ansible_user=root \
-		-e ansible_port=22
+		-e ansible_port=22 \
+		--ask-pass
 
 .PHONY: system
 system: ## System layer (common + users + security) — run promptly after bootstrap to harden
