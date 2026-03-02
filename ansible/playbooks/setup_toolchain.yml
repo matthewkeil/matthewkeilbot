@@ -16,6 +16,15 @@
       register: usr_local_disk_space
       changed_when: false
 
+    - name: Assert target architecture is x86_64
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture == 'x86_64'
+        fail_msg: >-
+          Unsupported architecture '{{ ansible_architecture }}'.
+          Toolchain checksums are for x86_64 only.
+          Update checksums in group_vars/all/vars.yml before deploying to a different architecture.
+
     - name: Assert sufficient disk space for toolchain
       ansible.builtin.assert:
         that:

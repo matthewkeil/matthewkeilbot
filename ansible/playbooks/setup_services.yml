@@ -3,6 +3,16 @@
   hosts: vps
   become: true
 
+  pre_tasks:
+    - name: Assert target architecture is x86_64
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture == 'x86_64'
+        fail_msg: >-
+          Unsupported architecture '{{ ansible_architecture }}'.
+          Checksums (node_exporter) are for x86_64 only.
+          Update checksums in group_vars/all/vars.yml before deploying to a different architecture.
+
   roles:
     - docker
     - nginx

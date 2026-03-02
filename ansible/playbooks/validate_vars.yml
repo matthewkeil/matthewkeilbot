@@ -10,7 +10,7 @@
       ansible.builtin.assert:
         that:
           - ssh_port is defined
-          - ssh_port | string | regex_search('^\d+$')
+          - ssh_port | string | regex_search('^\d+$') is not none
         fail_msg: >-
           vault_ssh_port must be a numeric value.
           Run `make vault-edit` to set it.
@@ -29,7 +29,7 @@
       ansible.builtin.assert:
         that:
           - openclaw_port is defined
-          - openclaw_port | string | regex_search('^\d+$')
+          - openclaw_port | string | regex_search('^\d+$') is not none
         fail_msg: >-
           vault_openclaw_port must be a numeric value.
           Run `make vault-edit` to set it.
