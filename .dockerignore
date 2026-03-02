@@ -1,0 +1,10 @@
+.vault_pass
+ansible/.vault_pass
+*.pem
+*.key
+.env
+.env.*
+secrets/
+.git/
+node_modules/
+.claude/

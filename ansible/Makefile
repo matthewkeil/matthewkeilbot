@@ -21,24 +21,17 @@ help: ## Show this help message
 bootstrap: ## First-time VPS bootstrap — creates devops user + SSH port (as root, port 22). Run 'make system' next!
 	ansible-playbook $(PLAYBOOK_DIR)/bootstrap_ssh.yml \
 		-e ansible_user=root \
-		-e ansible_port=22 \
-		--ask-vault-pass
+		-e ansible_port=22
 
 system: ## System layer (common + users + security) — run promptly after bootstrap to harden
-	ansible-playbook $(PLAYBOOK_DIR)/setup_system.yml \
-		--ask-vault-pass
-
+	ansible-playbook $(PLAYBOOK_DIR)/setup_system.yml
 services: ## Run services layer (docker + nginx + tailscale + monitoring)
-	ansible-playbook $(PLAYBOOK_DIR)/setup_services.yml \
-		--ask-vault-pass
-
+	ansible-playbook $(PLAYBOOK_DIR)/setup_services.yml
 toolchain: ## Run toolchain layer (node + python + rust + zig)
 	ansible-playbook $(PLAYBOOK_DIR)/setup_toolchain.yml
 
 deploy-openclaw: ## Deploy OpenClaw application
-	ansible-playbook $(PLAYBOOK_DIR)/deploy_openclaw.yml \
-		--ask-vault-pass
-
+	ansible-playbook $(PLAYBOOK_DIR)/deploy_openclaw.yml
 update-nginx: ## Update nginx sites (stub — no-op for now)
 	ansible-playbook $(PLAYBOOK_DIR)/update_nginx.yml
 
@@ -57,9 +50,7 @@ check: ## Syntax-check all playbooks and dry-run all.yml
 	done
 	@echo "=== Dry-run all.yml ==="
 	ansible-playbook $(PLAYBOOK_DIR)/all.yml \
-		--check --diff \
-		--ask-vault-pass
-
+		--check --diff
 lint: ## Run ansible-lint and yamllint
 	ansible-lint
 	yamllint .
@@ -98,21 +89,13 @@ vault-view: ## View vault contents without decrypting on disk
 ##
 ##
 validate: ## Validate all prerequisite variables (no server needed)
-	ansible-playbook $(PLAYBOOK_DIR)/validate_vars.yml \
-		--ask-vault-pass
-
+	ansible-playbook $(PLAYBOOK_DIR)/validate_vars.yml
 test-bootstrap: ## Run bootstrap verification tests (post-bootstrap, pre-system)
-	ansible-playbook $(PLAYBOOK_DIR)/test_bootstrap.yml \
-		--ask-vault-pass
-
+	ansible-playbook $(PLAYBOOK_DIR)/test_bootstrap.yml
 test-system: ## Run system layer verification tests
-	ansible-playbook $(PLAYBOOK_DIR)/test_system.yml \
-		--ask-vault-pass
-
+	ansible-playbook $(PLAYBOOK_DIR)/test_system.yml
 test-app: ## Run services/toolchain/application verification tests
-	ansible-playbook $(PLAYBOOK_DIR)/test_services_and_app.yml \
-		--ask-vault-pass
-
+	ansible-playbook $(PLAYBOOK_DIR)/test_services_and_app.yml
 test: test-system test-app ## Run all verification tests
 
 .PHONY: help bootstrap system services toolchain deploy-openclaw upgrade-openclaw update-nginx \

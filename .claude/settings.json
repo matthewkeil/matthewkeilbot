@@ -97,7 +97,12 @@
       "Bash(curl*|*bash:*)",
       "Bash(wget*|*bash:*)",
       "Bash(sudo rm:*)",
-      "Bash(sudo chmod:*)"
+      "Bash(sudo chmod:*)",
+      "Read(ansible/.vault_pass)",
+      "Bash(cat*ansible/.vault_pass*)",
+      "Bash(cat*.vault_pass*)",
+      "Bash(head*.vault_pass*)",
+      "Bash(tail*.vault_pass*)"
     ]
   }
 }

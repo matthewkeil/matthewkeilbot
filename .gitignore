@@ -18,6 +18,7 @@ ansible/inventory/hosts.yml
 *.key
 .env
 .env.*
+.vault_pass
 secrets/
 
 # OS
