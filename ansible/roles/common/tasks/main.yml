@@ -64,7 +64,28 @@
     line: "127.0.1.1 {{ common_hostname }}"
     state: present
 
-# 6. Configure journald
+# 6. Vim configuration
+- name: Deploy global vim configuration
+  ansible.builtin.template:
+    src: vimrc.j2
+    dest: /etc/vim/vimrc.local
+    owner: root
+    group: root
+    mode: "0644"
+
+# 7. Git configuration
+- name: Configure git globally
+  community.general.git_config:
+    name: "{{ item.name }}"
+    scope: global
+    value: "{{ item.value }}"
+  loop:
+    - { name: 'init.defaultBranch', value: 'main' }
+    - { name: 'pull.rebase', value: 'false' }
+    - { name: 'core.editor', value: 'vim' }
+    - { name: 'color.ui', value: 'auto' }
+
+# 8. Configure journald
 - name: Limit journald disk usage
   community.general.ini_file:
     path: /etc/systemd/journald.conf

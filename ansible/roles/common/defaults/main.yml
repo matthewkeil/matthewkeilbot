@@ -4,21 +4,48 @@ common_locale: "{{ system_locale | default('en_US.UTF-8') }}"
 common_hostname: "{{ system_hostname | default(inventory_hostname) }}"
 
 common_packages:
+  # Editors
+  - vim
+  - nano
+  # Version control
+  - git
+  - git-lfs
+  # Network tools
   - curl
   - wget
-  - git
-  - jq
-  - tree
+  - netcat-openbsd
+  - net-tools
+  - dnsutils
+  - iputils-ping
+  - traceroute
+  - tcpdump
+  - nmap
+  - socat
+  - telnet
+  - iproute2
+  # Debugging tools
+  - strace
+  - lsof
+  - gdb
   - htop
+  - iotop
+  - iftop
+  - sysstat
+  - procps
+  # System utilities
+  - tmux
+  - tree
+  - jq
   - unzip
+  - rsync
+  - less
+  # Build essentials
+  - build-essential
+  - file
+  # APT and system infrastructure
   - software-properties-common
   - apt-transport-https
   - ca-certificates
   - gnupg
   - lsb-release
   - acl
-  - net-tools
-  - iproute2
-  - lsof
-  - dnsutils
-  - rsync

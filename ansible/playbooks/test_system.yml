@@ -52,12 +52,22 @@
       ansible.builtin.command:
         cmd: "dpkg -l {{ item }}"
       loop:
-        - curl
+        - vim
+        - nano
         - git
-        - jq
-        - htop
+        - git-lfs
+        - curl
+        - wget
+        - netcat-openbsd
         - net-tools
+        - dnsutils
+        - build-essential
+        - htop
         - lsof
+        - strace
+        - tmux
+        - jq
+        - rsync
       register: test_packages
       changed_when: false
 
@@ -69,6 +79,30 @@
       loop: "{{ test_packages.results }}"
       loop_control:
         label: "{{ item.item }}"
+
+    - name: Verify global vim configuration exists
+      ansible.builtin.stat:
+        path: /etc/vim/vimrc.local
+      register: test_vimrc
+
+    - name: Assert vim configuration is deployed
+      ansible.builtin.assert:
+        that:
+          - test_vimrc.stat.exists
+          - test_vimrc.stat.mode == '0644'
+        fail_msg: "Global vim configuration not deployed at /etc/vim/vimrc.local."
+
+    - name: Verify git global config
+      ansible.builtin.command:
+        cmd: git config --global init.defaultBranch
+      register: test_git_config
+      changed_when: false
+
+    - name: Assert git default branch is main
+      ansible.builtin.assert:
+        that:
+          - test_git_config.stdout == 'main'
+        fail_msg: "Git global init.defaultBranch is not 'main'."
 
     - name: Check journal disk usage
       ansible.builtin.command:

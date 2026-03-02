@@ -1,9 +1,12 @@
 ---
 openclaw_version: "latest"
 openclaw_bot_name: "matthewkeilbot"
+
 openclaw_user: "matthewkeilbot"
 openclaw_home: "/home/matthewkeilbot"
-openclaw_port: 18789
+openclaw_config_dir: "{{ openclaw_home }}/.openclaw"
+
+openclaw_port: "{{ vault_openclaw_port }}"
 openclaw_gateway_bind: "loopback"
 openclaw_sandbox_mode: "container"
 openclaw_generate_auth_token: true
