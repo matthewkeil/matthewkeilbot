@@ -1,12 +1,4 @@
 ---
-- name: Ensure openclaw home directory exists with correct ownership
-  ansible.builtin.file:
-    path: "{{ openclaw_home }}"
-    state: directory
-    owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
-    mode: "0755"
-
 - name: Create OpenClaw directories (structure only, no config files)
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -61,16 +53,7 @@
   register: openclaw_pnpm_config
   changed_when: openclaw_pnpm_config.rc == 1
   failed_when: openclaw_pnpm_config.rc > 1
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
+
 # Auth token management
 - name: Check if gateway token exists
   ansible.builtin.stat:

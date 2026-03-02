@@ -16,14 +16,6 @@ ssh_port: "{{ vault_ssh_port }}"
 devops_user: "devops"
 devops_ssh_public_key: "{{ vault_devops_ssh_public_key }}"
 
-# Service users
-service_users:
-  - name: "matthewkeilbot"
-    home: "/home/matthewkeilbot"
-
-# Tailscale
-# tailscale_auth_key: passed via CLI (-e tailscale_auth_key=...) for first-time setup only
-
 # OpenClaw
 openclaw_version: "v2026.3.1"
 openclaw_port: "{{ vault_openclaw_port }}"

@@ -1,4 +1,7 @@
 ---
+- name: Create and configure OpenClaw user
+  ansible.builtin.import_tasks: user.yml
+
 - name: Install OpenClaw
   ansible.builtin.import_tasks: install.yml
 

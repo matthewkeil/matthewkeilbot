@@ -17,6 +17,7 @@ openclaw_max_open_files: 8192
 openclaw_restart_sec: 10
 openclaw_start_limit_interval: 300
 openclaw_start_limit_burst: 5
+openclaw_ssh_keys: []
 openclaw_tailscale_serve: true
 openclaw_health_check_retries: 5
 openclaw_health_check_delay: 5

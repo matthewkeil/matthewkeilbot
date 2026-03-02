@@ -139,6 +139,79 @@
           - "'openclaw_secrets' in test_openclaw_audit.stdout"
         fail_msg: "OpenClaw audit rules are not loaded."
 
+    # ── OpenClaw user verification ─────────────────────────────────
+    - name: "OpenClaw user - check passwd entry"
+      ansible.builtin.command:
+        cmd: "getent passwd {{ openclaw_user }}"
+      changed_when: false
+      register: test_openclaw_passwd
+
+    - name: "OpenClaw user - assert bash shell"
+      ansible.builtin.assert:
+        that:
+          - "'/bin/bash' in test_openclaw_passwd.stdout"
+        fail_msg: "OpenClaw user does not have /bin/bash shell."
+
+    - name: "OpenClaw user - check home directory"
+      ansible.builtin.stat:
+        path: "{{ openclaw_home }}"
+      register: test_openclaw_homedir
+
+    - name: "OpenClaw user - assert home directory permissions"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_homedir.stat.mode == '0755'
+          - test_openclaw_homedir.stat.pw_name == openclaw_user
+        fail_msg: "OpenClaw home directory has wrong permissions or ownership."
+
+    - name: "OpenClaw user - check sudoers file"
+      ansible.builtin.stat:
+        path: "/etc/sudoers.d/{{ openclaw_user }}"
+      register: test_openclaw_sudoers
+
+    - name: "OpenClaw user - assert scoped sudoers exists"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_sudoers.stat.exists
+          - test_openclaw_sudoers.stat.mode == '0440'
+        fail_msg: "OpenClaw scoped sudoers file missing or wrong permissions."
+
+    - name: "OpenClaw user - check .ssh directory"
+      ansible.builtin.stat:
+        path: "{{ openclaw_home }}/.ssh"
+      register: test_openclaw_ssh
+
+    - name: "OpenClaw user - assert .ssh directory exists"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_ssh.stat.exists
+          - test_openclaw_ssh.stat.mode == '0700'
+        fail_msg: "OpenClaw .ssh directory missing or wrong permissions."
+
+    - name: "OpenClaw user - check .bashrc exists"
+      ansible.builtin.stat:
+        path: "{{ openclaw_home }}/.bashrc"
+      register: test_openclaw_bashrc
+
+    - name: "OpenClaw user - assert .bashrc exists"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_bashrc.stat.exists
+        fail_msg: "OpenClaw .bashrc is missing."
+
+    - name: "OpenClaw user - assert not in docker group"
+      ansible.builtin.command:
+        cmd: getent group docker
+      changed_when: false
+      failed_when: false
+      register: test_openclaw_docker_group
+
+    - name: "OpenClaw user - assert excluded from docker group"
+      ansible.builtin.assert:
+        that:
+          - "openclaw_user not in test_openclaw_docker_group.stdout"
+        fail_msg: "OpenClaw user is in the docker group — root-equivalent access."
+
     # ── Summary ─────────────────────────────────────────────────────
     - name: All application tests passed
       ansible.builtin.debug:

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Install and configure a single OpenClaw bot instance. Handles: OpenClaw CLI installation via npm, configuration file generation, environment file with secrets from vault, systemd service with comprehensive security hardening, Tailscale Serve integration for HTTPS access, and health checking.
+Install and configure a single OpenClaw bot instance. Handles: user creation with scoped sudo and bash shell, OpenClaw CLI installation via npm, configuration file generation, environment file with secrets from vault, systemd service with comprehensive security hardening, Tailscale Serve integration for HTTPS access, and health checking.
 
 ## Role Structure
 
@@ -10,6 +10,7 @@ Install and configure a single OpenClaw bot instance. Handles: OpenClaw CLI inst
 roles/openclaw/
 ├── tasks/
 │   ├── main.yml
+│   ├── user.yml
 │   ├── install.yml
 │   ├── configure.yml
 │   ├── systemd.yml
@@ -46,6 +47,7 @@ roles/openclaw/
 | `openclaw_restart_sec` | `10` | Seconds before restart on failure |
 | `openclaw_start_limit_interval` | `300` | Window for start limit burst counting |
 | `openclaw_start_limit_burst` | `5` | Max restarts within interval |
+| `openclaw_ssh_keys` | `[]` | SSH public keys to authorize for the openclaw user |
 | `openclaw_tailscale_serve` | `true` | Whether to configure Tailscale Serve |
 | `openclaw_health_check_retries` | `5` | Health check retry count |
 | `openclaw_health_check_delay` | `5` | Seconds between health check retries |
@@ -54,7 +56,23 @@ roles/openclaw/
 
 ### `main.yml`
 
-Orchestrates the task files in order: install, configure, systemd, tailscale_serve (always included — on/off logic handled internally), health_check. At the end, register the service with monitoring by adding `openclaw@{{ openclaw_bot_name }}` to the `monitoring_watched_services` list (append, do not replace).
+Orchestrates the task files in order: user, install, configure, systemd, tailscale_serve (always included — on/off logic handled internally), health_check. At the end, register the service with monitoring by adding `openclaw@{{ openclaw_bot_name }}` to the `monitoring_watched_services` list (append, do not replace).
+
+### `user.yml`
+
+Creates and configures the openclaw system user. This user is **not** created by the generic `users` role — the openclaw role owns its entire user lifecycle.
+
+- Creates a system user with `/bin/bash` shell (not `nologin` — the bot spawns subprocesses that need a real shell).
+- Home directory set to `openclaw_home` with mode `0755` (subprocesses need to traverse).
+- Configures `.bashrc` with: 256-color terminal support, pnpm PATH (`PNPM_HOME`, `~/.local/bin`), color aliases, `XDG_RUNTIME_DIR`, and DBus session bus address.
+- Creates `.bash_profile` that sources `.bashrc` for login shells.
+- Deploys scoped sudoers file (`/etc/sudoers.d/<user>`, mode `0440`, validated with `visudo`):
+  - `systemctl start|stop|restart|status|enable|disable openclaw` and `daemon-reload`
+  - `tailscale status|up|down|ip|version|ping|whois` (diagnostics + connect/disconnect)
+  - `journalctl -u openclaw` (own logs only)
+- Enables `loginctl linger` for systemd user services without login.
+- Creates runtime directory at `/run/user/<uid>` (mode `0700`).
+- Creates `.ssh` directory (mode `0700`) and adds authorized keys from `openclaw_ssh_keys`.
 
 ### `install.yml`
 
@@ -66,7 +84,9 @@ Orchestrates the task files in order: install, configure, systemd, tailscale_ser
 
 ### `configure.yml`
 
-- Creates `~/.openclaw/` config directory (mode `0700`, owned by service user).
+- Creates `~/.openclaw/` config directory tree (structure only, no config files).
+- Creates user-local pnpm store directories (`~/.local/share/pnpm`, `~/.local/share/pnpm/store`, `~/.local/bin`).
+- Configures pnpm `global-dir` and `global-bin-dir` for the openclaw user (idempotent shell task).
 - Auth token: generates a 32-byte hex token via `openssl rand -hex 32` on first deploy only; reads and re-uses the existing token on subsequent runs. Token is stored at `~/.openclaw/gateway-token` (mode `0600`).
 - Config file (`config.json5`): deployed from template. On each run, compare the template output with the existing config file. If changed, update the config and notify `Restart openclaw` handler. This ensures Ansible can correct config drift while also applying template updates.
 - Env file (`env`): always updated from template on every run. Triggers `Restart openclaw` handler.
@@ -159,9 +179,10 @@ Initial gateway configuration in JSON5 format. Deployed only on first install (n
 
 ## Dependencies
 
-- `users` role (service user must exist)
-- `node` role (Node.js + npm must be installed)
+- `node` role (Node.js + npm + pnpm must be installed)
 - `tailscale` role (for Tailscale Serve integration)
+
+Note: The openclaw role creates its own user — it does **not** depend on the `users` role. The openclaw user is removed from the generic `service_users` list.
 
 ## Idempotency Notes
 
