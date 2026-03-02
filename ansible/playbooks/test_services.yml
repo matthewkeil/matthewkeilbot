@@ -1,0 +1,292 @@
+---
+- name: Services layer verification tests
+  hosts: vps
+  become: true
+  gather_facts: true
+
+  tasks:
+    # ── Docker ───────────────────────────────────────────────────────
+    - name: "Docker - check service state"
+      ansible.builtin.systemd:
+        name: docker
+      register: test_docker
+
+    - name: "Docker - assert service is running"
+      ansible.builtin.assert:
+        that:
+          - test_docker.status.ActiveState == 'active'
+        fail_msg: "Docker is not active."
+
+    - name: "Docker - check containerd service state"
+      ansible.builtin.systemd:
+        name: containerd
+      register: test_containerd
+
+    - name: "Docker - assert containerd is running"
+      ansible.builtin.assert:
+        that:
+          - test_containerd.status.ActiveState == 'active'
+        fail_msg: "containerd is not active."
+
+    - name: "Docker - check socket exists"
+      ansible.builtin.stat:
+        path: /var/run/docker.sock
+      register: test_docker_sock
+
+    - name: "Docker - assert socket exists"
+      ansible.builtin.assert:
+        that:
+          - test_docker_sock.stat.exists
+        fail_msg: "/var/run/docker.sock does not exist."
+
+    - name: "Docker - check devops group membership"
+      ansible.builtin.command:
+        cmd: groups devops
+      register: test_devops_docker
+      changed_when: false
+
+    - name: "Docker - assert devops is in docker group"
+      ansible.builtin.assert:
+        that:
+          - "'docker' in test_devops_docker.stdout"
+        fail_msg: "User 'devops' is not in the docker group."
+
+    - name: "Docker - check matthewkeilbot group membership"
+      ansible.builtin.command:
+        cmd: groups matthewkeilbot
+      register: test_bot_docker
+      changed_when: false
+
+    - name: "Docker - assert matthewkeilbot is NOT in docker group"
+      ansible.builtin.assert:
+        that:
+          - "'docker' not in test_bot_docker.stdout"
+        fail_msg: >-
+          Service user 'matthewkeilbot' should not be
+          in the docker group.
+
+    - name: "Docker - run docker info"
+      ansible.builtin.command:
+        cmd: docker info
+      register: test_docker_info
+      changed_when: false
+
+    - name: "Docker - assert docker info succeeds"
+      ansible.builtin.assert:
+        that:
+          - test_docker_info.rc == 0
+        fail_msg: "'docker info' failed."
+
+    # ── Nginx ────────────────────────────────────────────────────────
+    - name: "Nginx - check service state"
+      ansible.builtin.systemd:
+        name: nginx
+      register: test_nginx
+
+    - name: "Nginx - assert service is running"
+      ansible.builtin.assert:
+        that:
+          - test_nginx.status.ActiveState == 'active'
+        fail_msg: "Nginx is not active."
+
+    - name: "Nginx - verify listening on port 80"
+      ansible.builtin.wait_for:
+        port: 80
+        timeout: 5
+
+    - name: "Nginx - test configuration"
+      ansible.builtin.command:
+        cmd: nginx -t
+      register: test_nginx_config
+      changed_when: false
+
+    - name: "Nginx - assert configuration is valid"
+      ansible.builtin.assert:
+        that:
+          - test_nginx_config.rc == 0
+        fail_msg: "'nginx -t' failed."
+
+    - name: "Nginx - check default site is removed"
+      ansible.builtin.stat:
+        path: /etc/nginx/sites-enabled/default
+      register: test_nginx_default
+
+    - name: "Nginx - assert default site is removed"
+      ansible.builtin.assert:
+        that:
+          - not test_nginx_default.stat.exists
+        fail_msg: >-
+          /etc/nginx/sites-enabled/default should not exist.
+
+    - name: "Nginx - check catchall site is enabled"
+      ansible.builtin.stat:
+        path: /etc/nginx/sites-enabled/00-default-catchall.conf
+      register: test_nginx_catchall
+
+    - name: "Nginx - assert catchall site is enabled"
+      ansible.builtin.assert:
+        that:
+          - test_nginx_catchall.stat.exists
+        fail_msg: >-
+          /etc/nginx/sites-enabled/00-default-catchall.conf
+          does not exist.
+
+    # ── Tailscale ────────────────────────────────────────────────────
+    - name: "Tailscale - check tailscaled service state"
+      ansible.builtin.systemd:
+        name: tailscaled
+      register: test_tailscaled
+
+    - name: "Tailscale - assert tailscaled is running"
+      ansible.builtin.assert:
+        that:
+          - test_tailscaled.status.ActiveState == 'active'
+        fail_msg: "tailscaled is not active."
+
+    - name: "Tailscale - check tailscale0 interface exists"
+      ansible.builtin.stat:
+        path: /sys/class/net/tailscale0
+      register: test_tailscale_iface
+
+    - name: "Tailscale - warn if tailscale0 interface is missing"
+      ansible.builtin.debug:
+        msg: >-
+          tailscale0 interface does not exist. Tailscale may not be
+          authenticated yet. Skipping tailscale0-dependent assertions.
+          Run: make services ARGS='-e tailscale_auth_key=tskey-auth-...'
+      when: not test_tailscale_iface.stat.exists
+
+    - name: "Tailscale - assert tailscale0 interface exists"
+      ansible.builtin.assert:
+        that:
+          - test_tailscale_iface.stat.exists
+        fail_msg: "tailscale0 interface does not exist."
+      when: test_tailscale_iface.stat.exists
+
+    - name: "Tailscale - get status"
+      ansible.builtin.command:
+        cmd: tailscale status --json
+      register: test_tailscale_status
+      changed_when: false
+      when: test_tailscale_iface.stat.exists
+
+    - name: "Tailscale - assert backend is Running"
+      ansible.builtin.assert:
+        that:
+          - >-
+            (test_tailscale_status.stdout | from_json).BackendState
+            == 'Running'
+        fail_msg: "Tailscale BackendState is not 'Running'."
+      when: test_tailscale_iface.stat.exists
+
+    # ── UFW + Tailscale (conditional on tailscale0) ──────────────────
+    - name: "UFW - get full status"
+      ansible.builtin.command:
+        cmd: ufw status
+      changed_when: false
+      register: test_ufw_services
+      when: test_tailscale_iface.stat.exists
+
+    - name: "UFW - assert node_exporter only on tailscale0"
+      ansible.builtin.assert:
+        that:
+          - >-
+            test_ufw_services.stdout_lines
+            | select('search', '9100')
+            | reject('search', 'on tailscale0')
+            | list
+            | length == 0
+        fail_msg: >-
+          Port 9100 (node_exporter) is exposed publicly --
+          should only be on tailscale0.
+      when: test_tailscale_iface.stat.exists
+
+    # ── Monitoring ───────────────────────────────────────────────────
+    - name: "Monitoring - check node_exporter service state"
+      ansible.builtin.systemd:
+        name: node_exporter
+      register: test_node_exporter
+
+    - name: "Monitoring - assert node_exporter is running"
+      ansible.builtin.assert:
+        that:
+          - test_node_exporter.status.ActiveState == 'active'
+        fail_msg: "node_exporter is not active."
+
+    - name: "Monitoring - verify node_exporter listening on port 9100"
+      ansible.builtin.wait_for:
+        port: 9100
+        host: 127.0.0.1
+        timeout: 5
+
+    - name: "Monitoring - fetch node_exporter metrics endpoint"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:9100/metrics
+        status_code:
+          - 200
+      register: test_node_exporter_metrics
+
+    - name: "Monitoring - assert node_exporter metrics are accessible"
+      ansible.builtin.assert:
+        that:
+          - test_node_exporter_metrics.status == 200
+        fail_msg: "node_exporter /metrics did not return 200."
+
+    - name: "Monitoring - check alert-check.sh exists"
+      ansible.builtin.stat:
+        path: /opt/monitoring/alert-check.sh
+      register: test_alert_script
+
+    - name: "Monitoring - assert alert-check.sh exists with correct mode"
+      ansible.builtin.assert:
+        that:
+          - test_alert_script.stat.exists
+          - test_alert_script.stat.mode == '0750'
+        fail_msg: >-
+          /opt/monitoring/alert-check.sh does not exist
+          or has wrong permissions.
+
+    - name: "Monitoring - check crontab for alert-check.sh"
+      ansible.builtin.command:
+        cmd: crontab -l
+      register: test_crontab
+      changed_when: false
+
+    - name: "Monitoring - assert alert-check.sh is in crontab"
+      ansible.builtin.assert:
+        that:
+          - "'alert-check.sh' in test_crontab.stdout"
+        fail_msg: "alert-check.sh not found in crontab."
+
+    # ── Service audit rules (services-layer only) ────────────────────
+    - name: "Audit - list active rules"
+      ansible.builtin.command:
+        cmd: auditctl -l
+      register: test_service_audit_rules
+      changed_when: false
+
+    - name: "Audit - assert docker audit rules are loaded"
+      ansible.builtin.assert:
+        that:
+          - "'/var/run/docker.sock' in test_service_audit_rules.stdout"
+        fail_msg: "Docker audit rules are not loaded."
+
+    - name: "Audit - assert tailscale audit rules are loaded"
+      ansible.builtin.assert:
+        that:
+          - "'/var/lib/tailscale' in test_service_audit_rules.stdout"
+        fail_msg: "Tailscale audit rules are not loaded."
+
+    - name: "Audit - assert monitoring audit rules are loaded"
+      ansible.builtin.assert:
+        that:
+          - "'/opt/monitoring/alert-check.sh' in test_service_audit_rules.stdout"
+        fail_msg: "Monitoring audit rules are not loaded."
+
+    # ── Summary ──────────────────────────────────────────────────────
+    - name: All services layer tests passed
+      ansible.builtin.debug:
+        msg: >-
+          All services layer assertions passed.
+          Tailscale-dependent checks were
+          {{ 'executed' if test_tailscale_iface.stat.exists else 'skipped (tailscale0 not present)' }}.

@@ -18,3 +18,15 @@
     - nginx
     - tailscale
     - monitoring
+
+  post_tasks:
+    - name: Check if audit rules changed (requires reboot for immutable rules)
+      ansible.builtin.command:
+        cmd: auditctl -s
+      register: services_audit_status
+      changed_when: false
+
+    - name: Reboot to load new audit rules if immutable
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+      when: "'enabled 2' in services_audit_status.stdout"

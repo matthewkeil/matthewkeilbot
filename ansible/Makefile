@@ -124,9 +124,13 @@ test-bootstrap: ## Run bootstrap verification tests (post-bootstrap, pre-system)
 test-system: ## Run system layer verification tests
 	ansible-playbook $(PLAYBOOK_DIR)/test_system.yml
 
+.PHONY: test-services
+test-services: ## Run services layer verification tests (docker, nginx, tailscale, monitoring)
+	ansible-playbook $(PLAYBOOK_DIR)/test_services.yml
+
 .PHONY: test-app
 test-app: ## Run services/toolchain/application verification tests
 	ansible-playbook $(PLAYBOOK_DIR)/test_services_and_app.yml
 
 .PHONY: test
-test: test-system test-app ## Run all verification tests
+test: test-system test-services test-app ## Run all verification tests
