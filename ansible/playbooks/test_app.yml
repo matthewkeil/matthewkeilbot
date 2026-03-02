@@ -1,0 +1,145 @@
+---
+- name: Application verification tests
+  hosts: vps
+  become: true
+  gather_facts: true
+
+  tasks:
+    # ── OpenClaw ────────────────────────────────────────────────────
+    - name: "OpenClaw - check openclaw is installed"
+      ansible.builtin.command:
+        cmd: openclaw --version
+      environment:
+        N_PREFIX: /usr/local
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+      register: test_openclaw_version
+      changed_when: false
+
+    - name: "OpenClaw - assert openclaw is available"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_version.rc == 0
+        fail_msg: "openclaw is not installed or not in PATH."
+
+    - name: "OpenClaw - check service state"
+      ansible.builtin.systemd:
+        name: openclaw@matthewkeilbot
+      register: test_openclaw_service
+
+    - name: "OpenClaw - assert service is running"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_service.status.ActiveState == 'active'
+        fail_msg: "openclaw@matthewkeilbot is not active."
+
+    - name: "OpenClaw - assert service is enabled"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_service.status.UnitFileState == 'enabled'
+        fail_msg: "openclaw@matthewkeilbot is not enabled."
+
+    - name: "OpenClaw - check config file"
+      ansible.builtin.stat:
+        path: /home/matthewkeilbot/.openclaw/config.json5
+      register: test_openclaw_config
+
+    - name: "OpenClaw - assert config file is correct"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_config.stat.exists
+          - test_openclaw_config.stat.mode == '0600'
+          - test_openclaw_config.stat.pw_name == 'matthewkeilbot'
+        fail_msg: >-
+          config.json5 does not exist or has wrong
+          permissions/ownership.
+
+    - name: "OpenClaw - check env file"
+      ansible.builtin.stat:
+        path: /home/matthewkeilbot/.openclaw/env
+      register: test_openclaw_env
+
+    - name: "OpenClaw - assert env file is correct"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_env.stat.exists
+          - test_openclaw_env.stat.mode == '0600'
+        fail_msg: "env file does not exist or has wrong permissions."
+
+    - name: "OpenClaw - check gateway token file"
+      ansible.builtin.stat:
+        path: /home/matthewkeilbot/.openclaw/gateway-token
+      register: test_openclaw_token
+
+    - name: "OpenClaw - assert gateway token file is correct"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_token.stat.exists
+          - test_openclaw_token.stat.mode == '0600'
+        fail_msg: "gateway-token does not exist or has wrong permissions."
+
+    - name: "OpenClaw - check HTTP endpoint"
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ openclaw_port }}/"
+        status_code:
+          - 200
+          - 302
+      register: test_openclaw_http
+
+    - name: "OpenClaw - check listening ports"
+      ansible.builtin.command:
+        cmd: ss -tlnp
+      register: test_openclaw_ss
+      changed_when: false
+
+    - name: "OpenClaw - assert listening on localhost"
+      ansible.builtin.assert:
+        that:
+          - "'127.0.0.1' in test_openclaw_ss.stdout"
+        fail_msg: >-
+          OpenClaw does not appear to be bound to
+          127.0.0.1 on port {{ openclaw_port }}.
+
+    - name: "OpenClaw - assert NoNewPrivileges is enabled"
+      ansible.builtin.assert:
+        that:
+          - test_openclaw_service.status.NoNewPrivileges == 'yes'
+        fail_msg: >-
+          NoNewPrivileges is not set for
+          openclaw@matthewkeilbot.
+
+    - name: "OpenClaw - get UFW status"
+      ansible.builtin.command:
+        cmd: ufw status
+      changed_when: false
+      register: test_ufw_app
+
+    - name: "OpenClaw - assert UFW port on tailscale0"
+      ansible.builtin.assert:
+        that:
+          - >-
+            test_ufw_app.stdout_lines
+            | select('search', openclaw_port | string)
+            | select('search', 'on tailscale0')
+            | select('search', 'ALLOW')
+            | list
+            | length > 0
+        fail_msg: >-
+          OpenClaw port {{ openclaw_port }} is not allowed
+          on tailscale0.
+
+    - name: "OpenClaw - assert audit rules are loaded"
+      ansible.builtin.command:
+        cmd: auditctl -l
+      register: test_openclaw_audit
+      changed_when: false
+
+    - name: "OpenClaw - assert openclaw_secrets audit rule"
+      ansible.builtin.assert:
+        that:
+          - "'openclaw_secrets' in test_openclaw_audit.stdout"
+        fail_msg: "OpenClaw audit rules are not loaded."
+
+    # ── Summary ─────────────────────────────────────────────────────
+    - name: All application tests passed
+      ansible.builtin.debug:
+        msg: "All application assertions passed."

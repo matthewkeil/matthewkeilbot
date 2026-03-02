@@ -128,9 +128,13 @@ test-system: ## Run system layer verification tests
 test-services: ## Run services layer verification tests (docker, nginx, tailscale, monitoring)
 	ansible-playbook $(PLAYBOOK_DIR)/test_services.yml
 
+.PHONY: test-toolchain
+test-toolchain: ## Run toolchain verification tests (node, python, rust, zig)
+	ansible-playbook $(PLAYBOOK_DIR)/test_toolchain.yml
+
 .PHONY: test-app
-test-app: ## Run services/toolchain/application verification tests
-	ansible-playbook $(PLAYBOOK_DIR)/test_services_and_app.yml
+test-app: ## Run application verification tests (OpenClaw)
+	ansible-playbook $(PLAYBOOK_DIR)/test_app.yml
 
 .PHONY: test
-test: test-system test-services test-app ## Run all verification tests
+test: test-system test-services test-toolchain test-app ## Run all verification tests

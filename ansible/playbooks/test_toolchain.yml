@@ -1,0 +1,117 @@
+---
+- name: Toolchain verification tests
+  hosts: vps
+  become: true
+  gather_facts: true
+
+  tasks:
+    # ── Node.js ─────────────────────────────────────────────────────
+    - name: "Toolchain - check Node.js is installed"
+      ansible.builtin.command:
+        cmd: node --version
+      environment:
+        N_PREFIX: /usr/local
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+      register: test_node
+      changed_when: false
+
+    - name: "Toolchain - assert Node.js is available"
+      ansible.builtin.assert:
+        that:
+          - test_node.rc == 0
+        fail_msg: "Node.js is not installed or not in PATH."
+
+    - name: "Toolchain - check npm is installed"
+      ansible.builtin.command:
+        cmd: npm --version
+      environment:
+        N_PREFIX: /usr/local
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+      register: test_npm
+      changed_when: false
+
+    - name: "Toolchain - assert npm is available"
+      ansible.builtin.assert:
+        that:
+          - test_npm.rc == 0
+        fail_msg: "npm is not installed or not in PATH."
+
+    # ── Python ──────────────────────────────────────────────────────
+    - name: "Toolchain - check Python3 is installed"
+      ansible.builtin.command:
+        cmd: /usr/local/bin/python3 --version
+      register: test_python
+      changed_when: false
+
+    - name: "Toolchain - assert Python3 is available"
+      ansible.builtin.assert:
+        that:
+          - test_python.rc == 0
+        fail_msg: "Python3 is not installed at /usr/local/bin/python3."
+
+    - name: "Toolchain - check pip3 is installed"
+      ansible.builtin.command:
+        cmd: /usr/local/bin/pip3 --version
+      register: test_pip
+      changed_when: false
+
+    - name: "Toolchain - assert pip3 is available"
+      ansible.builtin.assert:
+        that:
+          - test_pip.rc == 0
+        fail_msg: "pip3 is not installed at /usr/local/bin/pip3."
+
+    - name: "Toolchain - check pyenv is installed"
+      ansible.builtin.command:
+        cmd: /opt/pyenv/bin/pyenv --version
+      register: test_pyenv
+      changed_when: false
+
+    - name: "Toolchain - assert pyenv is available"
+      ansible.builtin.assert:
+        that:
+          - test_pyenv.rc == 0
+        fail_msg: "pyenv is not installed at /opt/pyenv/bin/pyenv."
+
+    # ── Rust ────────────────────────────────────────────────────────
+    - name: "Toolchain - check Rust compiler is installed"
+      ansible.builtin.command:
+        cmd: /opt/rust/cargo/bin/rustc --version
+      register: test_rustc
+      changed_when: false
+
+    - name: "Toolchain - assert rustc is available"
+      ansible.builtin.assert:
+        that:
+          - test_rustc.rc == 0
+        fail_msg: "rustc is not installed at /opt/rust/cargo/bin/rustc."
+
+    - name: "Toolchain - check Cargo is installed"
+      ansible.builtin.command:
+        cmd: /opt/rust/cargo/bin/cargo --version
+      register: test_cargo
+      changed_when: false
+
+    - name: "Toolchain - assert cargo is available"
+      ansible.builtin.assert:
+        that:
+          - test_cargo.rc == 0
+        fail_msg: "cargo is not installed at /opt/rust/cargo/bin/cargo."
+
+    # ── Zig ─────────────────────────────────────────────────────────
+    - name: "Toolchain - check Zig is installed"
+      ansible.builtin.command:
+        cmd: /usr/local/bin/zig version
+      register: test_zig
+      changed_when: false
+
+    - name: "Toolchain - assert Zig is available"
+      ansible.builtin.assert:
+        that:
+          - test_zig.rc == 0
+        fail_msg: "Zig is not installed at /usr/local/bin/zig."
+
+    # ── Summary ─────────────────────────────────────────────────────
+    - name: All toolchain tests passed
+      ansible.builtin.debug:
+        msg: "All toolchain assertions passed."
