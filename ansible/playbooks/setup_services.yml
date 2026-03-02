@@ -20,13 +20,16 @@
     - monitoring
 
   post_tasks:
-    - name: Check if audit rules changed (requires reboot for immutable rules)
+    - name: Check if audit rules are immutable
       ansible.builtin.command:
         cmd: auditctl -s
       register: services_audit_status
       changed_when: false
 
-    - name: Reboot to load new audit rules if immutable
-      ansible.builtin.reboot:
-        reboot_timeout: 300
+    - name: Warn if reboot is required for new audit rules
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: Audit rules are immutable (enabled 2). New service audit
+          rules will not take effect until the host is rebooted.
+          Please reboot manually when convenient: sudo reboot
       when: "'enabled 2' in services_audit_status.stdout"

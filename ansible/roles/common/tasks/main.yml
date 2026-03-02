@@ -16,9 +16,11 @@
     path: /var/run/reboot-required
   register: common_reboot_required
 
-- name: Reboot if required
-  ansible.builtin.reboot:
-    reboot_timeout: 300
+- name: Warn if reboot is required
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: A reboot is required after package upgrades.
+      Please reboot manually when convenient: sudo reboot
   when: common_reboot_required.stat.exists
 
 # 2. Install essential packages
