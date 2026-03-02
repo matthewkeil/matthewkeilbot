@@ -18,7 +18,3 @@
     group: root
     mode: "0640"
   notify: Reload audit rules
-
-- name: Configure Tailscale Serve
-  ansible.builtin.include_tasks: serve.yml
-  when: tailscale_serve_services | length > 0

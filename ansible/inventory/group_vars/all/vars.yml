@@ -23,7 +23,6 @@ service_users:
 
 # Tailscale
 # tailscale_auth_key: passed via CLI (-e tailscale_auth_key=...) for first-time setup only
-tailscale_serve_enabled: true
 
 # OpenClaw
 openclaw_version: "v2026.3.1"

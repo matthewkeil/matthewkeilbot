@@ -65,13 +65,17 @@ Optional `docker_daemon_config` overrides (not applied when empty):
 - Only applied when `docker_daemon_config` is non-empty
 - Notifies handler to restart Docker
 
-### 7. Enable services
+### 7. Deploy Docker audit rules
+- Deploy Docker audit rules to `/etc/audit/rules.d/docker.rules` (watches `/var/run/docker.sock` tagged `docker_access`, watches `/usr/bin/docker` execution tagged `docker_command`). Notify `Reload audit rules` handler.
+
+### 8. Enable services
 - Enable and start `docker` via systemd
 - Enable and start `containerd` via systemd
 
 ## Handlers
 
 - **Restart docker**: restarts the `docker` systemd service and ensures it remains enabled
+- **Reload audit rules**: restarts auditd using `service auditd restart` (auditd has `RefuseManualStop=yes` on Ubuntu 24.04)
 
 ## Security Notes
 

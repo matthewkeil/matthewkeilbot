@@ -61,6 +61,18 @@ Deploys or updates the OpenClaw bot instance. Assumes system, services, and tool
 
 Stub for future per-site nginx vhost deployments. Currently a no-op placeholder. Each application needing a public nginx vhost will be wired here as it is added.
 
+### `playbooks/rollback_system.yml` — System Artifact Cleanup
+
+Cleans up stale artifacts that may be left behind by system role changes. Has a Makefile target (`make rollback-system`).
+
+- **become**: true
+- **tasks**:
+  - Remove stale `LC_ALL` line from `/etc/default/locale` (left by old locale deployment)
+  - Fix `auditd.conf` spacing (ensure `key = value` format with spaces around `=`)
+  - Remove stale service-specific audit rule files from `/etc/audit/rules.d/` that are no longer managed by their respective roles
+  - Restart auditd (via `service auditd restart`)
+  - Clean up `sshd_config` backup files
+
 ### Rollback Playbooks (manual use only)
 
 Rollback playbooks are provided for critical roles. They do not have Makefile targets and are run directly via `ansible-playbook`:
@@ -70,7 +82,7 @@ Rollback playbooks are provided for critical roles. They do not have Makefile ta
 
 ### Note on import_tasks vs include_tasks
 
-All role `main.yml` files use `ansible.builtin.import_tasks` for unconditional task includes and `ansible.builtin.include_tasks` for conditional includes (e.g., security role feature toggles, tailscale serve conditional).
+All role `main.yml` files use `ansible.builtin.import_tasks` for unconditional task includes and `ansible.builtin.include_tasks` for conditional includes (e.g., security role feature toggles).
 
 ## Makefile Targets
 
@@ -86,6 +98,7 @@ The Makefile lives in the `ansible/` directory. All targets prompt for vault pas
 | `deploy-openclaw` | Deploy | Runs `deploy_openclaw.yml` (`--ask-vault-pass`) |
 | `upgrade-openclaw` | Deploy | Upgrades OpenClaw to latest version (`--ask-vault-pass`) |
 | `update-nginx` | Deploy | Runs `update_nginx.yml` stub (no-op for now) |
+| `rollback-system` | Rollback | Cleans up stale system artifacts (locale, auditd, audit rules) (`--ask-vault-pass`) |
 | `check` | Validation | Syntax-checks all playbooks, then dry-runs `all.yml` with `--check --diff` (`--ask-vault-pass`) |
 | `lint` | Validation | Runs `ansible-lint` on all playbooks and `yamllint` on the full tree |
 | `vault-edit` | Vault | Opens the encrypted vault file in `$EDITOR` for editing |

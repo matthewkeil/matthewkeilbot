@@ -10,7 +10,6 @@
 
 - name: Configure Tailscale Serve for OpenClaw
   ansible.builtin.include_tasks: tailscale_serve.yml
-  when: openclaw_tailscale_serve
 
 - name: Run OpenClaw health check
   ansible.builtin.import_tasks: health_check.yml

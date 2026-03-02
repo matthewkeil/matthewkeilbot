@@ -1,4 +1,21 @@
 ---
+# UFW rule for OpenClaw on tailscale0
+- name: Check if tailscale0 interface exists
+  ansible.builtin.stat:
+    path: /sys/class/net/tailscale0
+  register: openclaw_tailscale_interface
+
+- name: Allow OpenClaw port on tailscale0 interface
+  community.general.ufw:
+    rule: allow
+    port: "{{ openclaw_port }}"
+    proto: tcp
+    interface: tailscale0
+    direction: in
+    comment: "OpenClaw via Tailscale"
+  when: openclaw_tailscale_interface.stat.exists
+
+# Tailscale Serve configuration
 - name: Check Tailscale backend state
   ansible.builtin.command:
     cmd: tailscale status --json
@@ -6,11 +23,52 @@
   failed_when: false
   changed_when: false
 
+- name: Get current Tailscale Serve status
+  ansible.builtin.command:
+    cmd: tailscale serve status --json
+  register: openclaw_ts_serve_before
+  changed_when: false
+  failed_when: false
+  when:
+    - openclaw_ts_status.rc == 0
+    - (openclaw_ts_status.stdout | from_json).BackendState == "Running"
+
 - name: Configure Tailscale Serve for OpenClaw
   ansible.builtin.command:
     cmd: "tailscale serve --https={{ openclaw_port }} http://127.0.0.1:{{ openclaw_port }}"
   register: openclaw_ts_serve_result
   changed_when: false
   when:
+    - openclaw_tailscale_serve
     - openclaw_ts_status.rc == 0
     - (openclaw_ts_status.stdout | from_json).BackendState == "Running"
+
+- name: Remove Tailscale Serve for OpenClaw
+  ansible.builtin.command:
+    cmd: "tailscale serve --https={{ openclaw_port }} off"
+  when:
+    - not openclaw_tailscale_serve
+    - openclaw_ts_status.rc == 0
+    - (openclaw_ts_status.stdout | from_json).BackendState == "Running"
+  changed_when: true
+  failed_when: false
+
+- name: Get final Tailscale Serve status
+  ansible.builtin.command:
+    cmd: tailscale serve status --json
+  register: openclaw_ts_serve_after
+  changed_when: false
+  failed_when: false
+  when:
+    - openclaw_ts_status.rc == 0
+    - (openclaw_ts_status.stdout | from_json).BackendState == "Running"
+
+- name: Report Tailscale Serve change
+  ansible.builtin.debug:
+    msg: "Tailscale Serve configuration updated for OpenClaw"
+  changed_when: >-
+    (openclaw_ts_serve_before.stdout | default('')) !=
+    (openclaw_ts_serve_after.stdout | default(''))
+  when:
+    - openclaw_ts_serve_before is defined
+    - openclaw_ts_serve_after is defined

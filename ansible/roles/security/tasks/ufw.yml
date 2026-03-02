@@ -24,51 +24,6 @@
   loop_control:
     label: "{{ item.comment | default(item.port) }}"
 
-- name: Check if tailscale0 interface exists
-  ansible.builtin.stat:
-    path: /sys/class/net/tailscale0
-  register: security_tailscale_interface
-
-- name: Allow SSH on tailscale0 interface
-  community.general.ufw:
-    rule: allow
-    port: "22"
-    proto: tcp
-    interface: tailscale0
-    direction: in
-    comment: "SSH via Tailscale"
-  when: security_tailscale_interface.stat.exists
-
-- name: Allow node_exporter on tailscale0 interface
-  community.general.ufw:
-    rule: allow
-    port: "9100"
-    proto: tcp
-    interface: tailscale0
-    direction: in
-    comment: "node_exporter via Tailscale"
-  when: security_tailscale_interface.stat.exists
-
-- name: Allow HTTPS on tailscale0 interface
-  community.general.ufw:
-    rule: allow
-    port: "443"
-    proto: tcp
-    interface: tailscale0
-    direction: in
-    comment: "HTTPS via Tailscale Serve"
-  when: security_tailscale_interface.stat.exists
-
-- name: Allow OpenClaw port on tailscale0 interface
-  community.general.ufw:
-    rule: allow
-    port: "{{ openclaw_port }}"
-    proto: tcp
-    interface: tailscale0
-    direction: in
-    comment: "OpenClaw via Tailscale"
-  when: security_tailscale_interface.stat.exists
-
 - name: Enable UFW
   community.general.ufw:
     state: enabled

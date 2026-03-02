@@ -3,4 +3,3 @@ tailscale_auth_key: ""
 tailscale_up_args: "--ssh"
 tailscale_auto_update: true
 tailscale_minimum_version: "1.54"
-tailscale_serve_services: []

@@ -48,7 +48,8 @@ Default packages installed via `common_packages`:
 
 ### 4. Configure locale
 - Generate the locale specified by `common_locale`
-- Write `/etc/default/locale` with `LANG` and `LC_ALL` set to `common_locale` (mode `0644`, owned by root)
+- Check current system locale via `localectl status`
+- Apply locale via `localectl set-locale LANG=<common_locale>` (only when not already set). Note: `localectl` does not accept `LC_ALL` — only set `LANG`.
 
 ### 5. Set hostname
 - Set the system hostname to `common_hostname`

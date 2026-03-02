@@ -12,7 +12,7 @@ Fresh Ubuntu VPS (Ubuntu 24.04 LTS)
 ├── System Layer
 │   ├── devops user (SSH + sudo, key-only auth on custom port)
 │   ├── Service users (nologin shell, isolated home dirs)
-│   ├── UFW firewall (default-deny in, allow SSH:vault_port/HTTP:80/HTTPS:443/Tailscale)
+│   ├── UFW firewall (default-deny in, allow SSH:vault_port/HTTP:80/HTTPS:443)
 │   ├── SSH hardened (custom port, key-only, no root, MaxAuthTries=3)
 │   ├── fail2ban (SSH + nginx jails)
 │   ├── sysctl hardening (network security kernel params)
@@ -23,7 +23,7 @@ Fresh Ubuntu VPS (Ubuntu 24.04 LTS)
 ├── Services Layer
 │   ├── Docker CE (installed, devops user in docker group, ready for future use)
 │   ├── Nginx (multi-vhost skeleton, default catch-all, no sites active)
-│   ├── Tailscale (private overlay network, Serve for OpenClaw UI)
+│   ├── Tailscale (private overlay network, base firewall rules on tailscale0)
 │   └── Prometheus node_exporter + cron-based alerting
 │
 ├── Toolchain Layer (system-wide installs under /opt and /usr/local)
@@ -37,10 +37,22 @@ Fresh Ubuntu VPS (Ubuntu 24.04 LTS)
         ├── Service user: matthewkeilbot (nologin, home /home/matthewkeilbot)
         ├── systemd service: openclaw@matthewkeilbot.service
         ├── Bound to loopback only (127.0.0.1:vault_openclaw_port)
+        ├── Own UFW rule + Tailscale Serve config (service-owns-config)
         ├── Accessed via Tailscale Serve (https://hostname.ts.net)
         ├── Auth token generated on first deploy
         └── Secrets: Ansible Vault → templated .env
 ```
+
+## Design Principles
+
+### Service-Owns-Config
+
+Each service/application role owns its own network configuration:
+- **UFW rules**: Infrastructure roles (security, tailscale) provide only base rules. Each service role adds its own UFW rules for the `tailscale0` interface (conditional on interface existence).
+- **Tailscale Serve**: Configured by the consuming role (e.g., openclaw), not the tailscale role.
+- **Audit rules**: Base system audit rules live in the security role's `hardening.rules`. Each service role deploys its own audit rules file to `/etc/audit/rules.d/` (e.g., `docker.rules`, `tailscale.rules`, `monitoring.rules`, `openclaw.rules`).
+
+This ensures infrastructure roles have zero knowledge of application-specific ports, services, or configuration, and services can be added or removed without modifying infrastructure roles.
 
 ## Access Patterns
 
@@ -80,7 +92,8 @@ ansible/
 │   ├── validate_vars.yml              # Validate prerequisite variables
 │   ├── test_bootstrap.yml             # Verify post-bootstrap state (pre-hardening)
 │   ├── test_system.yml                # Verify post-system state
-│   └── test_services_and_app.yml      # Verify services and application state
+│   ├── test_services_and_app.yml      # Verify services and application state
+│   └── rollback_system.yml            # Clean up stale system artifacts
 │
 └── roles/
     ├── bootstrap/                      # → see specs/02-system/00-bootstrap.md
@@ -186,6 +199,7 @@ Future per-site nginx vhost deployments. Each application that needs a public ng
 | `make test-system` | Run system layer verification tests |
 | `make test-app` | Run services/toolchain/application verification tests |
 | `make test` | Run all verification tests (test-system + test-app) |
+| `make rollback-system` | Clean up stale system artifacts (locale, auditd, audit rules) |
 | `make vault-edit` | Edit the encrypted vault file |
 | `make vault-view` | View vault contents without decrypting on disk |
 | `make vault-encrypt` | Encrypt the vault file |

@@ -148,8 +148,9 @@ Execution order (important — see Critical Safety Notes):
 - Set default incoming policy to `security_ufw_default_incoming`
 - Set default outgoing policy to `security_ufw_default_outgoing`
 - Apply all rules from `security_ufw_rules` (rule, port, proto, optional comment)
-- Check if `tailscale0` interface exists (via `/sys/class/net/tailscale0`). If present, allow specific ports on `tailscale0` interface: SSH (22/tcp), node_exporter (9100/tcp), HTTPS for Tailscale Serve (443/tcp), and the OpenClaw port (`openclaw_port`/tcp). Do not use `ignore_errors: true` — use the interface existence check as a conditional.
 - Enable UFW
+
+> **Service-owns-config**: The security role has zero knowledge of tailscale, openclaw, or monitoring. Each service role adds its own UFW rules for the `tailscale0` interface (see tailscale, monitoring, and openclaw role specs).
 
 ### `ssh.yml`
 - Deploy `sshd_config.j2` to `/etc/ssh/sshd_config` (mode `0600`, root owned, backup enabled)
@@ -186,12 +187,12 @@ Note on Docker compatibility: Docker manages `net.ipv4.ip_forward` at daemon sta
 
 ### `auditd.yml`
 - Install `auditd` and `audispd-plugins` packages
-- Configure `max_log_file`, `num_logs`, and `max_log_file_action` in `/etc/audit/auditd.conf`
+- Configure `max_log_file`, `num_logs`, and `max_log_file_action` in `/etc/audit/auditd.conf` using `ansible.builtin.lineinfile` (not `ini_file` — auditd requires `key = value` spacing with spaces around `=`)
 - Deploy `audit-rules.j2` to `/etc/audit/rules.d/hardening.rules` (mode `0640`, root owned)
 - Notify `Restart auditd` handler
 
 ### Template: `audit-rules.j2`
-Audit rules covering:
+Base system audit rules only:
 - Write/attribute changes to: `/etc/passwd`, `/etc/group`, `/etc/shadow`, `/etc/gshadow`, `/etc/sudoers`, `/etc/sudoers.d/` (tagged `identity`)
 - Write/attribute changes to `/etc/ssh/sshd_config` (tagged `sshd_config`)
 - `execve` syscall by root on behalf of users with uid >= 1000 (tagged `privilege_escalation`)
@@ -199,19 +200,16 @@ Audit rules covering:
 - `chown`/`fchown`/`fchownat`/`lchown` by users with uid >= 1000 (tagged `ownership_changes`)
 - Failed `open`/`openat`/`creat` (EACCES and EPERM) by users with uid >= 1000 (tagged `access_denied`)
 - Execution of `insmod`, `modprobe`, `rmmod` (tagged `kernel_modules`)
-- Write/access changes to `/var/run/docker.sock` (tagged `docker_access`)
-- Execution of `/usr/bin/docker` (tagged `docker_command`)
-- Write/attribute changes to `/var/lib/tailscale/` (tagged `tailscale_config`)
 - Write/attribute changes to `/etc/crontab` and `/var/spool/cron/` (tagged `cron_modification`)
-- Read/write/attribute changes to `/home/matthewkeilbot/.openclaw/env` (tagged `openclaw_secrets`)
-- Write/attribute changes to `/opt/monitoring/alert-check.sh` (tagged `monitoring_script`)
 - `-e 2` at end — makes audit configuration immutable until reboot
+
+> **Service-owns-config**: Service-specific audit rules (docker, tailscale, openclaw, monitoring) are deployed by each service role as separate files in `/etc/audit/rules.d/`. See docker, tailscale, monitoring, and openclaw role specs.
 
 ### `shared_memory.yml`
 - Mount `/dev/shm` as `tmpfs` with options: `defaults,noexec,nosuid,nodev`
 
 ### `proc.yml`
-- Mount `/proc` with `hidepid=2` option for system-wide process hiding (prevents non-root users from seeing other users' processes)
+- Mount `/proc` with `hidepid=invisible` option for system-wide process hiding (prevents non-root users from seeing other users' processes). Ubuntu 24.04 uses `hidepid=invisible` instead of the legacy `hidepid=2`.
 
 ### `unattended_upgrades.yml`
 - Install `unattended-upgrades`, `apt-listchanges`, and `needrestart` packages (needrestart detects services that need restart after library updates)
@@ -229,7 +227,7 @@ Configures:
 
 - `Restart sshd` — restarts and enables `sshd`
 - `Restart fail2ban` — restarts and enables `fail2ban`
-- `Restart auditd` — restarts and enables `auditd`
+- `Restart auditd` — restarts auditd using `service auditd restart` (not `systemctl restart` — auditd has `RefuseManualStop=yes` in its systemd unit on Ubuntu 24.04)
 
 ## Critical Safety Notes
 

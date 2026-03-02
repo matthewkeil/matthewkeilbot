@@ -63,11 +63,13 @@ Default watched services:
 - Clean up tarball and extracted directory from `/tmp/`
 - Deploy systemd service unit from `node_exporter.service.j2`; notify handler on change
 - Enable and start `node_exporter` via systemd (with daemon reload)
+- Check if `tailscale0` interface exists (via `/sys/class/net/tailscale0`). If present, add UFW rule allowing 9100/tcp inbound on `tailscale0` (comment: "node_exporter via Tailscale")
 
 ### `alerting.yml`
 - Create `/opt/monitoring` directory (owner root, mode 0750)
 - Deploy `alert-check.sh` from template to `/opt/monitoring/alert-check.sh` (owner root, mode 0750)
 - Configure cron job named `monitoring-alert-check` running as root on the `monitoring_alert_cron_minute` schedule
+- Deploy monitoring audit rules to `/etc/audit/rules.d/monitoring.rules` (watches `/opt/monitoring/alert-check.sh`, tagged `monitoring_script`). Notify `Reload audit rules` handler.
 
 ## Templates
 
@@ -93,6 +95,7 @@ Bash script run by cron to check system health. Key behaviors:
 ## Handlers
 
 - **Restart node_exporter**: restarts the `node_exporter` systemd service with daemon reload and ensures it remains enabled
+- **Reload audit rules**: restarts auditd using `service auditd restart` (auditd has `RefuseManualStop=yes` on Ubuntu 24.04)
 
 ## Design Decisions
 

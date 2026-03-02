@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Install Tailscale, authenticate to the tailnet, configure UFW for the Tailscale interface, and optionally set up Tailscale Serve to proxy loopback services over HTTPS.
+Install Tailscale, authenticate to the tailnet, and configure base UFW rules for the Tailscale interface. Service-specific UFW rules and Tailscale Serve configuration are owned by each consuming role (see openclaw, monitoring role specs).
 
 ## Role Structure
 
@@ -12,8 +12,7 @@ roles/tailscale/
 │   ├── main.yml
 │   ├── install.yml
 │   ├── authenticate.yml
-│   ├── firewall.yml
-│   └── serve.yml
+│   └── firewall.yml
 ├── defaults/
 │   └── main.yml
 ├── handlers/
@@ -30,12 +29,6 @@ roles/tailscale/
 | `tailscale_up_args` | `--ssh` | Enables Tailscale SSH |
 | `tailscale_auto_update` | `true` | Enables automatic updates |
 | `tailscale_minimum_version` | `1.54` | Minimum to avoid TS-2024-001 |
-| `tailscale_serve_services` | `[]` | Services to expose via Tailscale Serve |
-
-`tailscale_serve_services` item shape:
-- `port`: port number to expose on the tailnet
-- `backend`: backend URL (e.g. `http://127.0.0.1:123`)
-- `proto`: protocol for Tailscale Serve (default: `https`)
 
 ## Tasks
 
@@ -43,7 +36,7 @@ roles/tailscale/
 - Include `install.yml`
 - Include `authenticate.yml`
 - Include `firewall.yml`
-- Include `serve.yml` only when `tailscale_serve_services` is non-empty
+- Deploy Tailscale audit rules to `/etc/audit/rules.d/tailscale.rules` (watches `/var/lib/tailscale/`, tagged `tailscale_config`). Notify `Reload audit rules` handler.
 
 ### `install.yml`
 - Check whether Tailscale is already installed (via `tailscale version`)
@@ -66,18 +59,17 @@ roles/tailscale/
 - Display current `tailscale status` output as debug info
 
 ### `firewall.yml`
-- Allow specific inbound ports on `tailscale0` interface: SSH (22/tcp if Tailscale SSH is enabled), node_exporter (9100/tcp), HTTPS for Tailscale Serve (443/tcp), and OpenClaw port (`openclaw_port`/tcp). Allow all outbound traffic on `tailscale0` interface.
+Base tailscale0 firewall rules only:
+- Allow SSH (22/tcp) on `tailscale0` interface
+- Allow HTTPS (443/tcp) on `tailscale0` interface (for Tailscale Serve)
+- Allow all outbound traffic on `tailscale0` interface
 
-### `serve.yml`
-- Verify tailscaled is running (fail if not) before configuring Serve
-- Retrieve current Tailscale Serve status
-- For each item in `tailscale_serve_services`, run `tailscale serve --<proto>=<port> <backend>`
-- Register the current Tailscale Serve status before configuring. Set `changed_when` by comparing the desired configuration against the current status (only report changed when the configuration actually changed).
-- Display final `tailscale serve status` output as debug info
+> **Service-owns-config**: The tailscale role has zero knowledge of openclaw or monitoring. Each consuming role adds its own UFW rules for the `tailscale0` interface (e.g., monitoring adds 9100/tcp, openclaw adds its port). Tailscale Serve configuration is owned by the openclaw role.
 
 ## Handlers
 
 - **Restart tailscaled**: restarts the `tailscaled` systemd service and ensures it remains enabled
+- **Reload audit rules**: restarts auditd using `service auditd restart` (auditd has `RefuseManualStop=yes` on Ubuntu 24.04)
 
 ## Security Notes
 
@@ -97,5 +89,4 @@ roles/tailscale/
 
 - Installation check prevents re-downloading on subsequent runs
 - Authentication check prevents re-authenticating when already connected
-- Tailscale Serve `serve` command is idempotent (re-running with same args is a no-op)
 - UFW rule additions are idempotent

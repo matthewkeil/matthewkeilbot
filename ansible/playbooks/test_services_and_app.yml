@@ -692,6 +692,29 @@
         - application
         - all
 
+    - name: "UFW - check OpenClaw port on tailscale0"
+      ansible.builtin.shell: |
+        set -o pipefail
+        ufw status | grep '{{ openclaw_port }}' | grep 'on tailscale0' | grep -c 'ALLOW' || echo '0'
+      args:
+        executable: /bin/bash
+      changed_when: false
+      register: test_openclaw_ufw
+      tags:
+        - application
+        - all
+
+    - name: "UFW - assert OpenClaw port is on tailscale0"
+      ansible.builtin.assert:
+        that:
+          - "test_openclaw_ufw.stdout | trim != '0'"
+        fail_msg: >-
+          OpenClaw port {{ openclaw_port }} is not allowed
+          on tailscale0.
+      tags:
+        - application
+        - all
+
     - name: All services and application tests passed
       ansible.builtin.debug:
         msg: "All 36 services and application assertions passed."

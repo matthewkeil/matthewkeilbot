@@ -54,7 +54,7 @@ roles/openclaw/
 
 ### `main.yml`
 
-Orchestrates the task files in order: install, configure, systemd, tailscale_serve (conditional on `openclaw_tailscale_serve`), health_check. At the end, register the service with monitoring by adding `openclaw@{{ openclaw_bot_name }}` to the `monitoring_watched_services` list (append, do not replace).
+Orchestrates the task files in order: install, configure, systemd, tailscale_serve (always included — on/off logic handled internally), health_check. At the end, register the service with monitoring by adding `openclaw@{{ openclaw_bot_name }}` to the `monitoring_watched_services` list (append, do not replace).
 
 ### `install.yml`
 
@@ -71,6 +71,7 @@ Orchestrates the task files in order: install, configure, systemd, tailscale_ser
 - Config file (`config.json5`): deployed from template. On each run, compare the template output with the existing config file. If changed, update the config and notify `Restart openclaw` handler. This ensures Ansible can correct config drift while also applying template updates.
 - Env file (`env`): always updated from template on every run. Triggers `Restart openclaw` handler.
 - All secret-handling steps use `no_log: true`.
+- Deploy OpenClaw audit rules to `/etc/audit/rules.d/openclaw.rules` (watches `~/.openclaw/env` for read/write/attribute changes, tagged `openclaw_secrets`). Notify `Reload audit rules` handler.
 
 ### `systemd.yml`
 
@@ -81,9 +82,12 @@ Orchestrates the task files in order: install, configure, systemd, tailscale_ser
 
 ### `tailscale_serve.yml`
 
-- Checks Tailscale backend state before acting (skips silently if Tailscale is not running).
-- Configures Tailscale Serve to proxy HTTPS on the configured port to `http://127.0.0.1:<port>`.
-- Only runs when `openclaw_tailscale_serve` is true.
+- Check if `tailscale0` interface exists (via `/sys/class/net/tailscale0`). If present, add UFW rule allowing `openclaw_port`/tcp inbound on `tailscale0` (comment: "OpenClaw via Tailscale").
+- Check Tailscale backend state via `tailscale status --json`. Skip serve tasks silently if Tailscale is not running.
+- Get current Tailscale Serve status before configuring (for change detection).
+- When `openclaw_tailscale_serve` is true and Tailscale is running: configure `tailscale serve --https=<port> http://127.0.0.1:<port>`.
+- When `openclaw_tailscale_serve` is false and Tailscale is running: remove serve with `tailscale serve --https=<port> off` (`failed_when: false` for safety).
+- Get final Tailscale Serve status after configuring. Report change by comparing before/after status output.
 
 ### `health_check.yml`
 
@@ -124,6 +128,7 @@ Initial gateway configuration in JSON5 format. Deployed only on first install (n
 
 - `Reload systemd` — runs `daemon_reload` on the systemd module.
 - `Restart openclaw` — restarts `openclaw@<bot_name>` via systemd and ensures it remains enabled.
+- `Reload audit rules` — restarts auditd using `service auditd restart` (auditd has `RefuseManualStop=yes` on Ubuntu 24.04).
 
 ## Security Notes
 
