@@ -3,58 +3,43 @@
 
 [Unit]
 Description=OpenClaw Bot Gateway (%i)
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
+Requires=docker.service
 
 [Service]
 Type=simple
 User={{ openclaw_user }}
+Group={{ openclaw_user }}
 WorkingDirectory={{ openclaw_home }}
 
 # Environment
-Environment=NODE_ENV=production
-Environment=PYENV_ROOT=/opt/pyenv
-Environment=CARGO_HOME=/opt/rust/cargo
-Environment=RUSTUP_HOME=/opt/rust/rustup
-Environment=PATH=/usr/local/bin:/opt/pyenv/bin:/opt/rust/cargo/bin:%h/.local/bin:/usr/bin:/bin
-EnvironmentFile={{ openclaw_home }}/.openclaw/env
+Environment="PNPM_HOME={{ openclaw_home }}/.local/share/pnpm"
+Environment="PATH={{ openclaw_home }}/.local/bin:{{ openclaw_home }}/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin"
+Environment="HOME={{ openclaw_home }}"
+Environment="XDG_RUNTIME_DIR=/run/user/{{ openclaw_uid_value }}"
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{{ openclaw_uid_value }}/bus"
+EnvironmentFile={{ openclaw_config_dir }}/env
 
 # Execution
-ExecStart=/usr/local/bin/openclaw gateway --port ${OPENCLAW_PORT}
+ExecStart={{ openclaw_home }}/.local/bin/openclaw gateway --port ${OPENCLAW_PORT}
 
 # Restart policy
-Restart=on-failure
-RestartSec={{ openclaw_restart_sec }}
-StartLimitIntervalSec={{ openclaw_start_limit_interval }}
-StartLimitBurst={{ openclaw_start_limit_burst }}
-
-# Resource limits
-LimitNOFILE={{ openclaw_max_open_files }}
-LimitNPROC={{ openclaw_max_processes }}
-
-# Logging
-LogRateLimitIntervalSec=30s
-LogRateLimitBurst=1000
+Restart=always
+RestartSec=10
 
 # Security hardening
 NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=tmpfs
-BindPaths={{ openclaw_home }}
-ReadWritePaths={{ openclaw_home }}
 PrivateTmp=true
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectKernelLogs=true
-ProtectControlGroups=true
-ProtectClock=true
-RestrictNamespaces=true
-CapabilityBoundingSet=
-ProtectProc=invisible
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-SystemCallFilter=@system-service
-SystemCallFilter=~@privileged @resources @mount
-MemoryDenyWriteExecute=false
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths={{ openclaw_config_dir }}
+ReadWritePaths={{ openclaw_home }}/.local
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=openclaw
 
 [Install]
 WantedBy=multi-user.target

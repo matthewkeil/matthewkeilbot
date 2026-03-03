@@ -15,7 +15,6 @@ docker_daemon_config:
   userland-proxy: false
   live-restore: true
   ip6tables: false
-  no-new-privileges: true
   log-driver: json-file
   log-opts:
     max-size: "10m"

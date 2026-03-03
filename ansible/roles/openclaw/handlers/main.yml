@@ -8,8 +8,3 @@
     name: "openclaw@{{ openclaw_bot_name }}"
     state: restarted
     enabled: true
-
-- name: Reload audit rules
-  ansible.builtin.command:
-    cmd: service auditd restart
-  changed_when: true

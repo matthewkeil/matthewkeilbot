@@ -58,15 +58,3 @@
     group: "{{ openclaw_user }}"
     mode: "0600"
   notify: Restart openclaw
-
-# Audit rules for OpenClaw secrets
-- name: Deploy OpenClaw audit rules
-  ansible.builtin.copy:
-    dest: /etc/audit/rules.d/openclaw.rules
-    content: |
-      # Managed by Ansible — openclaw role
-      -w {{ openclaw_home }}/.openclaw/env -p rwa -k openclaw_secrets
-    owner: root
-    group: root
-    mode: "0640"
-  notify: Reload audit rules

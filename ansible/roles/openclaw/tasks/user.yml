@@ -104,23 +104,6 @@
     group: "{{ openclaw_user }}"
     mode: "0644"
 
-- name: Create .bash_profile for openclaw login shells
-  ansible.builtin.copy:
-    dest: "{{ openclaw_home }}/.bash_profile"
-    owner: "{{ openclaw_user }}"
-    group: "{{ openclaw_user }}"
-    mode: "0644"
-    content: |
-      # .bash_profile - Executed for login shells
-      # Systemd user session environment
-      export XDG_RUNTIME_DIR=/run/user/$(id -u)
-      export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
-
-      # Source .bashrc to ensure environment is loaded for login shells
-      if [ -f ~/.bashrc ]; then
-          . ~/.bashrc
-      fi
-
 - name: Add openclaw user to sudoers with scoped NOPASSWD
   ansible.builtin.template:
     src: openclaw-sudoers.j2
@@ -156,15 +139,50 @@
     cmd: "loginctl enable-linger {{ openclaw_user }}"
   changed_when: false
 
-- name: Start systemd user instance for openclaw user
-  ansible.builtin.systemd:
-    name: "user@{{ openclaw_uid_value }}.service"
-    state: started
+- name: Create runtime directory for openclaw user
+  ansible.builtin.file:
+    path: "/run/user/{{ openclaw_uid_value }}"
+    state: directory
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: "0700"
 
-- name: Wait for D-Bus session bus socket
-  ansible.builtin.wait_for:
-    path: "/run/user/{{ openclaw_uid_value }}/bus"
-    timeout: 10
+- name: Set XDG_RUNTIME_DIR in .bashrc for openclaw user
+  ansible.builtin.lineinfile:
+    path: "{{ openclaw_home }}/.bashrc"
+    line: 'export XDG_RUNTIME_DIR=/run/user/$(id -u)'
+    state: present
+    create: true
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: "0644"
+
+- name: Set DBUS_SESSION_BUS_ADDRESS in .bashrc for openclaw user
+  ansible.builtin.blockinfile:
+    path: "{{ openclaw_home }}/.bashrc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - DBus config"
+    block: |
+      # DBus session bus configuration
+      if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+        export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+      fi
+    create: true
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: "0644"
+
+- name: Create .bash_profile to source .bashrc for login shells
+  ansible.builtin.copy:
+    dest: "{{ openclaw_home }}/.bash_profile"
+    owner: "{{ openclaw_user }}"
+    group: "{{ openclaw_user }}"
+    mode: "0644"
+    content: |
+      # .bash_profile - Executed for login shells
+      # Source .bashrc to ensure environment is loaded for login shells
+      if [ -f ~/.bashrc ]; then
+          . ~/.bashrc
+      fi
 
 # SSH keypair for outbound connections (GitHub, other hosts)
 - name: Create .ssh directory for openclaw user
@@ -194,4 +212,3 @@
 - name: Display openclaw public key (add to GitHub deploy keys)
   ansible.builtin.debug:
     msg: "{{ openclaw_ssh_pubkey.content | b64decode | trim }}"
-

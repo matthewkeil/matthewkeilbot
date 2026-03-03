@@ -6,7 +6,7 @@ security_fail2ban_enabled: true
 security_sysctl_enabled: true
 security_auditd_enabled: true
 security_shared_memory_enabled: true
-security_proc_enabled: true
+security_proc_enabled: false
 security_unattended_upgrades_enabled: true
 
 # SSH
