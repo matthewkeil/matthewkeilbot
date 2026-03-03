@@ -26,6 +26,10 @@ bootstrap: ## First-time VPS bootstrap — creates devops user + SSH port (as ro
 		-e ansible_port=22 \
 		--ask-pass
 
+.PHONY: all
+all:
+	ansible-playbook $(PLAYBOOK_DIR)/all.yml
+
 .PHONY: system
 system: ## System layer (common + users + security) — run promptly after bootstrap to harden
 	ansible-playbook $(PLAYBOOK_DIR)/setup_system.yml
