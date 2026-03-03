@@ -147,6 +147,14 @@
           - >-
             'x11forwarding no'
             in test_sshd_config.stdout
+          - >-
+            'allowtcpforwarding '
+            ~ security_ssh_allow_tcp_forwarding
+            in test_sshd_config.stdout
+          - >-
+            'allowagentforwarding '
+            ~ security_ssh_allow_agent_forwarding
+            in test_sshd_config.stdout
         fail_msg: >-
           One or more SSH security settings
           are not correctly applied.
@@ -362,8 +370,10 @@
           - >-
             'hidepid=2' in test_proc_mount.stdout
             or 'hidepid=invisible' in test_proc_mount.stdout
+          - >-
+            'subset=pid' in test_proc_mount.stdout
         fail_msg: >-
-          /proc is not mounted with hidepid=2 or hidepid=invisible.
+          /proc is not mounted with hidepid and subset=pid.
           Got: {{ test_proc_mount.stdout }}
 
     # unattended-upgrades
@@ -399,71 +409,8 @@
         timeout: 5
 
     # ── Privilege separation verification ─────────────────────────
-    # Note: Generic service_users list. Application-specific user tests
-    # (e.g., openclaw) are in test_app.yml.
-    - name: "Privesc - check no sudoers files for generic service users"
-      ansible.builtin.stat:
-        path: "/etc/sudoers.d/{{ item.name }}"
-      register: test_service_sudoers
-      loop: "{{ service_users }}"
-      loop_control:
-        label: "{{ item.name }}"
-      when: service_users | length > 0
-
-    - name: "Privesc - assert no generic service user sudoers files"
-      ansible.builtin.assert:
-        that:
-          - not item.stat.exists
-        fail_msg: >-
-          Service user {{ item.item.name }}
-          has a sudoers file.
-      loop: "{{ test_service_sudoers.results | default([]) }}"
-      loop_control:
-        label: "{{ item.item.name | default('n/a') }}"
-      when: service_users | length > 0
-
-    - name: "Privesc - check docker group membership"
-      ansible.builtin.command:
-        cmd: getent group docker
-      changed_when: false
-      failed_when: false
-      register: test_docker_group
-
-    - name: "Privesc - assert generic service users not in docker group"
-      ansible.builtin.assert:
-        that:
-          - "item.name not in test_docker_group.stdout"
-        fail_msg: >-
-          Service user {{ item.name }} is in docker group --
-          root-equivalent access.
-      loop: "{{ service_users }}"
-      loop_control:
-        label: "{{ item.name }}"
-      when: service_users | length > 0
-
-    - name: "Privesc - check generic service user shells"
-      ansible.builtin.command:
-        cmd: "getent passwd {{ item.name }}"
-      changed_when: false
-      register: test_service_shells
-      loop: "{{ service_users }}"
-      loop_control:
-        label: "{{ item.name }}"
-      when: service_users | length > 0
-
-    - name: "Privesc - assert nologin shell for generic service users"
-      ansible.builtin.assert:
-        that:
-          - >-
-            '/usr/sbin/nologin' in item.stdout
-            or '/bin/false' in item.stdout
-        fail_msg: >-
-          Service user {{ item.item.name }}
-          has a login shell.
-      loop: "{{ test_service_shells.results | default([]) }}"
-      loop_control:
-        label: "{{ item.item.name | default('n/a') }}"
-      when: service_users | length > 0
+    # Note: Application-specific user privilege tests (e.g., openclaw
+    # sudoers, docker group) are in test_app.yml.
 
     - name: All system tests passed
       ansible.builtin.debug:

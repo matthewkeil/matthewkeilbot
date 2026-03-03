@@ -4,5 +4,5 @@
     path: /proc
     src: proc
     fstype: proc
-    opts: defaults,hidepid=invisible
+    opts: defaults,hidepid=invisible,subset=pid
     state: mounted

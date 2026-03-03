@@ -17,13 +17,11 @@ devops_user: "devops"
 devops_ssh_public_key: "{{ vault_devops_ssh_public_key }}"
 
 # OpenClaw
-openclaw_version: "v2026.3.1"
 openclaw_port: "{{ vault_openclaw_port }}"
 openclaw_bot_name: "matthewkeilbot"
-openclaw_user: "matthewkeilbot"
-openclaw_home: "/home/matthewkeilbot"
-openclaw_sandbox_mode: "container"
-openclaw_gateway_bind: "loopback"
+openclaw_user: "openclaw"
+openclaw_home: "/home/openclaw"
+openclaw_version: "2026.2.22-2"
 
 # Toolchain versions
 node_version: 24
