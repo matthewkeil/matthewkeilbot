@@ -1,4 +1,4 @@
-# Phase 4: Testing & Rollout Planning
+# Phase 5: Testing & Rollout Planning
 
 ## Your Role
 
@@ -112,7 +112,7 @@ Present the user with:
 3. **Rollout Plan**: Risk assessment, deployment sequence, gates, rollback plan
 4. **Manual Steps**: Any directives for the user (manual checks, monitoring to watch, etc.)
 
-Inform the user of the test strategy and rollout plan, then immediately proceed to Phase 5 — do not wait for user confirmation.
+Inform the user of the test strategy and rollout plan, then immediately proceed to Phase 6 — do not wait for user confirmation.
 
 ### Step 6: Devil's Advocate challenge (optional)
 
@@ -127,7 +127,7 @@ rollback plan? Message the Testing Specialist directly with your challenges.
 
 ## Exit Criteria
 
-Phase 4 is complete when:
+Phase 5 is complete when:
 - [ ] Test strategy is designed and documented
 - [ ] Test playbooks are written by the Builder (if applicable)
 - [ ] Rollout plan is designed with risk assessment, gates, and rollback

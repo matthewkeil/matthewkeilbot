@@ -1,4 +1,4 @@
-# Phase 3: Implementation
+# Phase 4: Implementation
 
 ## Your Role
 
@@ -11,11 +11,11 @@ You are the **Lead Orchestrator**. You spawn a full team per work stream (Builde
 | Role | Name | Status | Purpose |
 |------|------|--------|---------|
 | Architect | `architect` | Already running | Repo structure, file placement, cross-stream coordination |
-| Devil's Advocate | `devils-advocate` | Idle (reactivated in Phase 5) | Not needed during implementation |
+| Devil's Advocate | `devils-advocate` | Idle (reactivated in Phase 6) | Not needed during implementation |
 
-### Phase 2 Spec Auditors
+### Fresh Specialist Instances
 
-The `best-practices`, `ansible-security`, and `linux-security` agents from Phase 2 are **shut down** at the start of Phase 3. They are replaced by per-stream specialist instances that provide both consultation during build AND review after build — with zero contention between streams.
+Per-stream specialist instances are spawned fresh for each work stream, providing both consultation during build AND review after build — with zero contention between streams. If specialist agents exist from a prior phase (e.g., Spec Review), they are shut down first.
 
 ### Per-Stream Teams (spawned per active work stream)
 
@@ -66,9 +66,9 @@ The `best-practices`, `ansible-security`, and `linux-security` agents from Phase
 - Each stream has a build phase followed by a review phase before it's marked complete
 - Dependent streams only start after their dependencies are reviewed and approved
 
-## Step 1: Shut Down Phase 2 Spec Auditors
+## Step 1: Shut Down Prior Phase Agents
 
-The `best-practices`, `ansible-security`, and `linux-security` agents from Phase 2 have served their purpose (spec audit). Send shutdown requests to all three — they will be replaced by per-stream instances with fresh context.
+If specialist agents exist from a prior phase (e.g., Spec Review), send shutdown requests — they will be replaced by per-stream instances with fresh context.
 
 ## Step 2: Identify Initial Parallel Streams
 
@@ -160,12 +160,12 @@ YOUR STREAM TEAM (refer to teammates by name):
 - linux-ws<N>: Linux Security Auditor — handles system security for this stream
 - architect: Architect (shared) — ask about repo-specific conventions if needed
 
-PHASE 3A — CONSULTANT MODE:
+PHASE 4A — CONSULTANT MODE:
 The Builder will message you with questions about idiomatic Ansible patterns, variable
 handling, idempotency, and code structure. Respond with concrete, actionable guidance
 including example YAML. Flag anti-patterns proactively.
 
-PHASE 3B — PER-STREAM REVIEW MODE:
+PHASE 4B — PER-STREAM REVIEW MODE:
 When the Lead tells you to begin review, switch to your Mode 2 (Post-Implementation
 Reviewer). Review ONLY the files created/modified by builder-ws<N> for this stream.
 Focus on best practices concerns — do NOT review for security (sec-ws<N> and
@@ -191,12 +191,12 @@ YOUR STREAM TEAM (refer to teammates by name):
   with them if an issue spans both Ansible-level and system-level security.
 - architect: Architect (shared) — ask about repo-specific security conventions if needed
 
-PHASE 3A — CONSULTANT MODE:
+PHASE 4A — CONSULTANT MODE:
 The Builder will message you when working on security-sensitive tasks. Assess the
 risk and give specific guidance: which `no_log` tasks to add, what file permissions
 to set, how to structure vault references, etc.
 
-PHASE 3B — PER-STREAM REVIEW MODE:
+PHASE 4B — PER-STREAM REVIEW MODE:
 When the Lead tells you to begin review, perform a full Ansible security audit of
 ONLY the files created/modified by builder-ws<N> for this stream. Use your complete
 audit checklist from your agent profile. Do NOT review for code quality (bp-ws<N>
@@ -222,12 +222,12 @@ YOUR STREAM TEAM (refer to teammates by name):
   with them if an issue spans both levels.
 - architect: Architect (shared) — ask about infrastructure layout if needed
 
-PHASE 3A — CONSULTANT MODE:
+PHASE 4A — CONSULTANT MODE:
 The Builder will message you when working on tasks affecting target Linux systems.
 Assess the attack surface and give specific guidance: sudoers syntax, GTFOBins
 to watch for, firewall rule patterns, Docker security flags, etc.
 
-PHASE 3B — PER-STREAM REVIEW MODE:
+PHASE 4B — PER-STREAM REVIEW MODE:
 When the Lead tells you to begin review, perform a full system security audit of
 ONLY the files created/modified by builder-ws<N> for this stream. Use your complete
 audit checklist from your agent profile. Do NOT review for code quality (bp-ws<N>
@@ -349,11 +349,11 @@ When all work streams (including integration) are reviewed and approved:
 2. Verify all stream teams have been shut down
 3. Inform the user that implementation is complete with a brief summary: streams completed,
    files created/modified, review findings addressed, any deviations noted
-4. Immediately proceed to Phase 4 (Testing & Rollout) — do not wait for user confirmation
+4. Immediately proceed to Phase 5 (Testing & Rollout) — do not wait for user confirmation
 
 ## Exit Criteria
 
-Phase 3 is complete when:
+Phase 4 is complete when:
 - [ ] All work streams have been built and reviewed by their respective stream teams
 - [ ] All per-stream reviews have approved (all Must Fix / CRITICAL / HIGH items resolved)
 - [ ] Integration stream (if any) is built and reviewed

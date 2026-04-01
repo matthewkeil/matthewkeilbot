@@ -1,4 +1,4 @@
-# Phase 5: Formal Review
+# Phase 6: Formal Review
 
 ## Your Role
 
@@ -36,7 +36,7 @@ You are the **Lead Orchestrator**. You kick off the review process and track rev
 4. Devil's Advocate triages combined findings
    └── Sends triaged report to Lead: Must Fix / Should Fix / Out of Scope
 
-5. Lead has Builder fix Must Fix items
+5. Lead has Builder fix Must Fix and Should Fix items
 
 6. Repeat from step 1 if Must Fix items remain (up to 6 cycles)
 ```
@@ -228,13 +228,13 @@ When the formal review is complete (all Must Fix items resolved):
    - Number of findings resolved
    - Summary of what was implemented (reference the spec)
    - Any Nit items that were intentionally deferred
-   - Test strategy and rollout plan (from Phase 4)
+   - Test strategy and rollout plan (from Phase 5)
 
 2. Ask the user if they want to:
    - Commit the changes
    - Run any validation (syntax check, dry run)
    - Make additional changes
-   - Proceed with the rollout plan from Phase 4
+   - Proceed with the rollout plan from Phase 5
 
 3. Clean up the agent team:
    - Send shutdown requests to all teammates
@@ -243,7 +243,7 @@ When the formal review is complete (all Must Fix items resolved):
 
 ## Exit Criteria
 
-Phase 5 is complete when:
+Phase 6 is complete when:
 - [ ] All three domain reviews are complete
 - [ ] Devil's Advocate has challenged each reviewer
 - [ ] All Must Fix and Should Fix items are resolved
